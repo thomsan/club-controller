@@ -1,2 +1,9 @@
 numpy
 flask
+pyaudio
+scipy
+pyaudio
+pyqt5
+pyqtgraph
+eventhandler
+websockets

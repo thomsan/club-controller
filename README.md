@@ -8,3 +8,5 @@ The repository includes everything needed to build an remote controlled ESP8266 
 
 # License
 This project was developed by Thomas Ascioglu and is released under the MIT License.
+
+Based on [Scott Lawson's audio-reactive-led-strip](https://github.com/scottlawsonbc/audio-reactive-led-strip)

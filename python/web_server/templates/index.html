@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html xml:lang>
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Club controller</title>
     <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" type="text/css" href="/static/css/slider.css">
     <link rel="stylesheet" type="text/css" href="/static/css/main.css">
@@ -15,17 +16,13 @@
     <h1>Hello Clubbing World</h1>
     <h3>Smoke</h3>
     <div id="smoke-button"></div>
-    <h1>Color</h1>
-    <label for="favcolor">Color:</label>
-    <input id="colorpicker" type="color" id="colorpicker" value="#0000ff">
-    <h1>Sigma</h1>
-    <input type="range" id="sigma" name="sigma" min="1.0" max="30.0">
-    <p>
-        <label for="freq">Frequency range:</label>
-        <input type="text" id="freq" readonly style="border:0; color:#f6931f; font-weight:bold;">
-    </p>
-    <div id="freq-slider-range"></div>
-    
+    <h1>LED Strips</h1>
+    {% for led_strip in led_strips %}
+        <div id=led_strip.id>
+            {% include "led-strip.html" %}
+        </div>
+    {% endfor %}
+
     <script src="/static/js/main.js"></script>
 </body>
 
