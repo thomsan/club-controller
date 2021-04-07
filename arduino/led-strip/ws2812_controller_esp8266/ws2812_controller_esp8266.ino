@@ -12,6 +12,8 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
+#define DEBUG 0
+
 // Set to the number of LEDs in your LED strip
 #define NUM_LEDS 80
 // Maximum number of packets to hold in the buffer. Don't changethis.
@@ -68,15 +70,19 @@ IPAddress serverIp;
 uint16_t serverPort;
 
 // timer and counter
-uint32_t CLIENT_KEEP_ALIVE_MS = 2000;
-uint32_t lastClientMessageMS;
+
+uint32_t CLIENT_KEEP_ALIVE_DELAY_MS = 2000;
+uint32_t CLIENT_BROADCAST_DELAY_MS = 5000;
+uint32_t SERVER_KEEP_ALIVE_TIMEOUT_MS = 5000;
+uint32_t lastClientBroadcastMS;
+uint32_t lastClientKeepAliveMS;
+uint32_t lastServerMessageMS;
 uint32_t nowMS;
-uint16_t fpsCounter = 0;
-uint32_t secondTimer = 0;
+
 uint8_t N = 0;
 #if PRINT_FPS
     uint16_t fpsCounter = 0;
-    uint32_t secondTimer = 0;
+    uint32_t fpsTimerMS = 0;
 #endif
 
 // LED strip
@@ -96,16 +102,17 @@ IPAddress broadcast(192, 168, 178, 255);
 IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
 
-RgbColor red(255,0,0);
-RgbColor green(0,255,0);
-RgbColor blue(0,0,255);
+RgbColor red(10,0,0);
+RgbColor green(0,10,0);
+RgbColor blue(0,0,10);
+RgbColor yellow(10,10,0);
 
 void setup() {
     Serial.begin(115200);
 
     ledstrip.Begin();
     flashPattern(red, 5, 50);
-    cleraLedStrip();
+    clearLedStrip();
 
     WiFi.config(ip, gateway, subnet);
     WiFi.begin(ssid, password);
@@ -121,25 +128,31 @@ void setup() {
     messageUdpPort.begin(localPort);
     broadcastUdpPort.begin(remoteBroadcastPort);
     flashPattern(blue, 5, 50);
-    cleraLedStrip();
+    clearLedStrip();
 }
 
 void loop() {
+    nowMS = millis();
     if(!isConnectedToServer){
-        delay(5000);
-        int len = measureJson(configJson);
-        serializeJson(configJson, broadcastMessageBuffer);
-        Serial.printf("Sending configJson with length: %i\n", len);
-        //strncpy(broadcastMessageBuffer, configJsonString, BUFFER_LEN);
-        broadcastMessage(CLIENT_MESSAGE_ID_CONNECT, broadcastMessageBuffer, len);
+        if(nowMS - lastClientBroadcastMS >= CLIENT_BROADCAST_DELAY_MS){
+          int len = measureJson(configJson);
+          serializeJson(configJson, broadcastMessageBuffer);
+          Serial.printf("Sending configJson with length: %i\n", len);
+          broadcastMessage(CLIENT_MESSAGE_ID_CONNECT, broadcastMessageBuffer, len);
+          flashPattern(yellow, 2, 20);
+          lastClientBroadcastMS = nowMS;
+        }
     } else {
-      nowMS = millis();
-      if(nowMS - lastClientMessageMS >= CLIENT_KEEP_ALIVE_MS){
-        Serial.printf("Sending KEEPALIVE\n");
-        messageUdpPort.beginPacket(serverIp, serverPort);
+      if(nowMS - lastClientKeepAliveMS >= CLIENT_KEEP_ALIVE_DELAY_MS){
+        Serial.printf("Sending KEEPALIVE to %s:%i\n", serverIp.toString().c_str(), remoteBroadcastPort);
+        messageUdpPort.beginPacket(serverIp, remoteBroadcastPort);
         messageUdpPort.write(CLIENT_MESSAGE_ID_KEEPALIVE);
         messageUdpPort.endPacket();
-        lastClientMessageMS = nowMS;
+        lastClientKeepAliveMS = nowMS;
+      }
+      if(nowMS - lastServerMessageMS >= SERVER_KEEP_ALIVE_TIMEOUT_MS){
+        Serial.printf("Killing server connection server TIMEOUT\n");
+        isConnectedToServer = false;
       }
     }
 
@@ -147,9 +160,13 @@ void loop() {
     int packetSize = messageUdpPort.parsePacket();
     // If packets have been received, interpret the command
     if (packetSize) {
+        #if DEBUG
         Serial.printf("Received %d bytes from %s, port %d\n", packetSize, messageUdpPort.remoteIP().toString().c_str(), messageUdpPort.remotePort());
+        #endif
         int len = messageUdpPort.read(packetBuffer, BUFFER_LEN);
+        #if DEBUG
         Serial.printf("Received message with len %d\n", len);
+        #endif
         // read 4 bytes as messageId integer
         int messageId = packetBuffer[0];
         handleMessage(messageId, len-1, &packetBuffer[1]);
@@ -157,15 +174,16 @@ void loop() {
             fpsCounter++;
             Serial.print("/");//Monitors connection(shows jumps/jitters in packets)
         #endif
+        // check if actually from server ip
+        lastServerMessageMS = nowMS;
     }
     #if PRINT_FPS
-    if (millis() - secondTimer >= 1000U) {
-        secondTimer = millis();
+    if (nowMS - fpsTimerMS >= 1000U) {
+        fpsTimerMS = nowMS;
         Serial.printf("FPS: %d\n", fpsCounter);
         fpsCounter = 0;
     }
     #endif
-    // TODO set isConnectedToServer=false with connection timeout
 }
 
 void setupConfigJson(){
@@ -199,7 +217,9 @@ String ipAddress2String(const IPAddress& ipAddress)
 
 void handleMessage(int messageId, int len, char *buffer){
     // TODO check IP and make sure it's actually coming from the server
+    #if DEBUG
     Serial.printf("Received message with Id: %d\n", messageId);
+    #endif
     switch(messageId){
         case CONNECT:
             onConnectionMessage();
@@ -227,7 +247,7 @@ void handleMessage(int messageId, int len, char *buffer){
 
 void onConnectionMessage(){
     flashPattern(green, 5, 50);
-    cleraLedStrip();
+    clearLedStrip();
     isConnectedToServer = true;
     serverIp = messageUdpPort.remoteIP();
     serverPort = messageUdpPort.remotePort();
@@ -237,7 +257,7 @@ void onConnectionMessage(){
 void onDisconnectionMessage(){
     Serial.printf("Unregistered from server: %s, port %d\n", serverIp.toString().c_str(), serverPort);
     flashPattern(blue, 5, 50);
-    cleraLedStrip();
+    clearLedStrip();
     isConnectedToServer = false;
 }
 
@@ -254,9 +274,11 @@ void onLedStripUpdateMessage(int len, char *buffer){
     }
     // TODO always clear the pixels which are not present in the buffer and delete below
     if(len==0){
-      cleraLedStrip();
+      clearLedStrip();
     }
+    #if DEBUG
     Serial.printf("Received LED Strip update\n");
+    #endif
     ledstrip.Show();
 }
 
@@ -287,7 +309,7 @@ void printWifiStatus() {
   Serial.println(" dBm");
 }
 
-void cleraLedStrip(){
+void clearLedStrip(){
   RgbColor off(0,0,0);
   for(int i=0; i<NUM_LEDS; i++) {
     ledstrip.SetPixelColor(i, off);

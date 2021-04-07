@@ -1,8 +1,12 @@
 import socket
+import threading
 from enum import IntEnum
+
+import eventhandler
 
 from python.protocol.message_ids import ServerMessageId
 
+ON_TIMEOUT_EVENT_MESSAGE = "onTimeout"
 
 class ClientTypeId(IntEnum):
     LED_STRIP_CLIENT = 1
@@ -16,6 +20,9 @@ class Client:
         self.type = type
         self.config = config
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.event_handler = eventhandler.EventHandler(ON_TIMEOUT_EVENT_MESSAGE)
+        self.timeout = threading.Timer(5.0, self.on_client_timeout)
+        self.timeout.start()
 
     def stop(self):
         self.send_int_as_byte(ServerMessageId.DISCONNECT)
@@ -35,7 +42,7 @@ class Client:
 
     def send_int_as_byte(self, val):
         if __debug__:
-            print("Sending int to " + str((self.config["ip"], self.config["port"])) + ": " + str(val))
+            print("Sending " + str(val) + " to " + str((self.config["ip"], self.config["port"])))
         self.send_raw(bytes([int(val)]))
 
 
@@ -45,6 +52,15 @@ class Client:
             print("Sending message with id " + str(message_id) + " and length: " + str(len(data_bytes)) + " to " + str((self.config["ip"], self.config["port"])))
         self.send_raw(message_id_bytes + data_bytes)
 
+
+    def on_client_timeout(self):
+        self.event_handler.fire(ON_TIMEOUT_EVENT_MESSAGE, self)
+
+
+    def keep_alive(self):
+        self.timeout.cancel()
+        self.timeout = threading.Timer(5.0, self.on_client_timeout)
+        self.timeout.start()
 
 class ClientConfig:
     def __init__(self, ip, port, name):
