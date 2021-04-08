@@ -1,3 +1,11 @@
+
+const EffectId = {
+    COLORED_ENERGY: 1,
+    ENERGY: 2,
+    SCROLL: 3,
+    SPECTRUM: 4
+}
+
 class LEDStripUI {
     constructor(config, parentDiv, websocket){
         this.config = config;
@@ -8,6 +16,12 @@ class LEDStripUI {
         this.colorpicker = document.createElement("input");
         this.colorpicker.type = "color";
         this.colorpicker.addEventListener('input', e => this.onColorChanged(e));
+        this.effectSelector = document.createElement("select")
+        this.effectSelector.onchange = () => this.onEffectChanged();
+        for (let [key, value] of Object.entries(EffectId)){
+            this.effectSelector.options.add( new Option(key,value) )
+        }
+        this.effectSelector.value = config.led_strip_params.effect_id
         /*this.sigmaSlider = document.createElement("sgima");
         this.sigmaSlider.type = "range";
         this.sigmaSlider.addEventListener('input', this.onSigmaChanged);
@@ -38,19 +52,32 @@ class LEDStripUI {
         */
         this.div.appendChild(this.title);
         this.div.appendChild(this.colorpicker);
+        this.div.appendChild(this.effectSelector);
         this.parentDiv.appendChild(this.div);
         this.draw()
+    }
+
+    send_config_update(){
+        let message = JSON.stringify({
+            type: messageId.CLIENT_VALUE_UPDATED,
+            config: this.config
+        })
+        this.websocket.send(message);
     }
 
     onColorChanged(e) {
         let new_color = this.hexToRgb(e.target.value)
         if(new_color != null){
             this.config.led_strip_params.color = new_color;
-            let message = JSON.stringify({
-                type: messageId.CLIENT_VALUE_UPDATED,
-                config: this.config
-            })
-            this.websocket.send(message);
+            this.send_config_update()
+        }
+    }
+
+    onEffectChanged() {
+        if(this.effectSelector.value != this.config.led_strip_params.effect_id){
+            this.config.led_strip_params.effect_id = parseInt(this.effectSelector.value)
+            console.log(this.config)
+            this.send_config_update();
         }
     }
 
@@ -96,5 +123,12 @@ class LEDStripUI {
         if(this.isValidColor(hexColor)){
             this.colorpicker.value = hexColor
         }
+        if(this.effectSelector.value != this.config.led_strip_params.effect_id){
+            this.effectSelector.value = this.config.led_strip_params.effect_id
+        }
+    }
+
+    remove(){
+        this.div.remove()
     }
 }
