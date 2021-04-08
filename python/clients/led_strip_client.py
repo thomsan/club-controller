@@ -40,12 +40,22 @@ class LedStripClient(Client):
         self.config = config
         self.config_lock = Lock()
         self.p = np.tile(1.0, (3, self.config["led_strip_params"]["num_pixels"] // 2))
-        self.p_filt = ExpFilter(np.tile(1, (3, self.config["led_strip_params"]["num_pixels"] // 2)), alpha_decay=0.1, alpha_rise=0.99)
-        self.gain = ExpFilter(np.tile(1, self.config["led_strip_params"]["dsp"]["n_fft_bins"]), alpha_decay=0.1, alpha_rise=0.99)
+        self.p_filt = ExpFilter(np.tile(1, (3, self.config["led_strip_params"]["num_pixels"] // 2)),
+                        alpha_decay=0.1, alpha_rise=0.99)
+        self.gain = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["dsp"]["n_fft_bins"]),
+                        alpha_decay=0.001, alpha_rise=0.99)
         self.pixels = np.tile(1, (3, self.config["led_strip_params"]["num_pixels"]))
         self.prev_pixels = np.tile(253, (3, self.config["led_strip_params"]["num_pixels"]))
         self.prev_spectrum = np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2)
         self.dsp = Dsp(config["led_strip_params"]["dsp"], app_config.MIC_RATE)
+        self.r_filt = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
+                            alpha_decay=0.2, alpha_rise=0.99)
+        self.g_filt = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
+                            alpha_decay=0.05, alpha_rise=0.3)
+        self.b_filt = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
+                            alpha_decay=0.1, alpha_rise=0.5)
+        self.common_mode = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
+                            alpha_decay=0.99, alpha_rise=0.01)
         super().__init__(ClientTypeId.LED_STRIP_CLIENT, self.config)
 
 
@@ -65,8 +75,8 @@ class LedStripClient(Client):
             pixel_values = self.get_pixel_values_energy(mel_data)
         elif(effect_id == EffectId.SCROLL):
             pixel_values = self.get_pixel_values_scroll(mel_data)
-        #elif(effect_id == EffectId.SPECTRUM):
-        #   return self.get_pixel_values_spectrum(mel_data)
+        elif(effect_id == EffectId.SPECTRUM):
+            pixel_values = self.get_pixel_values_spectrum(mel_data)
         else:
             if __debug__:
                 print("Unkown effectId: " + str(effect_id))
@@ -153,22 +163,22 @@ class LedStripClient(Client):
         return np.concatenate((self.p[:, ::-1], self.p), axis=1)
 
 
-    #def get_pixel_values_spectrum(self, mel_data):
-    #    """Effect that maps the Mel filterbank frequencies onto the LED strip"""
-    #    y = np.copy(interpolate(mel_data, self.config["led_strip_params"]["num_pixels"] // 2))
-    #    common_mode.update(y)
-    #    diff = y - self.prev_spectrum
-    #    self.prev_spectrum = np.copy(y)
-    #    # Color channel mappings
-    #    r = r_filt.update(y - common_mode.value)
-    #    g = np.abs(diff)
-    #    b = b_filt.update(np.copy(y))
-    #    # Mirror the color channels for symmetric output
-    #    r = np.concatenate((r[::-1], r))
-    #    g = np.concatenate((g[::-1], g))
-    #    b = np.concatenate((b[::-1], b))
-    #    output = np.array([r, g,b]) * 255
-    #    return output
+    def get_pixel_values_spectrum(self, mel_data):
+        """Effect that maps the Mel filterbank frequencies onto the LED strip"""
+        y = np.copy(self.interpolate(mel_data, self.config["led_strip_params"]["num_pixels"] // 2))
+        self.common_mode.update(y)
+        diff = y - self.prev_spectrum
+        self.prev_spectrum = np.copy(y)
+        # Color channel mappings
+        r = self.r_filt.update(y - self.common_mode.value)
+        g = np.abs(diff)
+        b = self.b_filt.update(np.copy(y))
+        # Mirror the color channels for symmetric output
+        r = np.concatenate((r[::-1], r))
+        g = np.concatenate((g[::-1], g))
+        b = np.concatenate((b[::-1], b))
+        output = np.array([r, g,b]) * 255
+        return output
 
 
     def update_mel_bank(self, rolling_window_data):
@@ -207,3 +217,49 @@ class LedStripClient(Client):
             m = bytes(m)
             self.send_message(ServerMessageId.LED_STRIP_UPDATE, m)
         self.prev_pixels = np.copy(p)
+
+
+    def memoize(function):
+        """Provides a decorator for memoizing functions"""
+        from functools import wraps
+        memo = {}
+
+        @wraps(function)
+        def wrapper(*args):
+            if args in memo:
+                return memo[args]
+            else:
+                rv = function(*args)
+                memo[args] = rv
+                return rv
+        return wrapper
+
+
+    @memoize
+    def _normalized_linspace(self, size):
+        return np.linspace(0, 1, size)
+
+
+    def interpolate(self, y, new_length):
+        """Intelligently resizes the array by linearly interpolating the values
+
+        Parameters
+        ----------
+        y : np.array
+            Array that should be resized
+
+        new_length : int
+            The length of the new interpolated array
+
+        Returns
+        -------
+        z : np.array
+            New array with length of new_length that contains the interpolated
+            values of y.
+        """
+        if len(y) == new_length:
+            return y
+        x_old = self._normalized_linspace(len(y))
+        x_new = self._normalized_linspace(new_length)
+        z = np.interp(x_new, x_old, y)
+        return z
