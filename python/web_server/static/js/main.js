@@ -1,7 +1,7 @@
 let clientUis = []
-const serverIp = '127.0.0.1';
+const hostname = location.hostname;
 const websocketPort = 6789
-const ws = new WebSocket('ws://' + serverIp + ':'+ websocketPort + '/');
+const ws = new WebSocket('ws://' + hostname + ':'+ websocketPort + '/');
 ws.onmessage = ({data}) => {
     let message = JSON.parse(data);
     switch (message.type) {
