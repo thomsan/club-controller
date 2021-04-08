@@ -4,17 +4,14 @@
 
 import asyncio
 import json
-import logging
 import threading
 from enum import IntEnum
 from python import config as app_config
 import websockets
 
-logging.basicConfig()
-
 class WebsocketMessageId(IntEnum):
     CLIENT_LIST_REQUEST = 1
-    CLIENT_LIST_RESPONSE = 2
+    CLIENT_LIST = 2
     CLIENT_CONNECTED = 3
     CLIENT_DISCONNECTED = 4
     CLIENT_VALUE_UPDATED = 5
@@ -28,31 +25,32 @@ class WebsocketServer:
 
     async def on_message_received(self, websocket, message):
         data = json.loads(message)
-        if WebsocketMessageId(data["id"]) == WebsocketMessageId.CLIENT_LIST_REQUEST:
-            await self.send_client_list(websocket)
-        elif WebsocketMessageId(data["id"]) == WebsocketMessageId.CLIENT_VALUE_UPDATED:
-            print("Received update from client: " + data)
-            await self.notify_state()
+        if WebsocketMessageId(data["type"]) == WebsocketMessageId.CLIENT_LIST_REQUEST:
+            await self.websocket.send(self.get_client_list_message())
+        elif WebsocketMessageId(data["type"]) == WebsocketMessageId.CLIENT_VALUE_UPDATED:
+            # TODO only send updated data
+            if __debug__:
+                print("Received update from client:  {}", data)
+            self.client_handler.update_config(data["config"])
+            await self.send_to_all_but_this(websocket, self.get_client_list_message())
         else:
-            logging.error("unsupported event: {}", data)
+            if __debug__:
+                print("unsupported event: {}", data)
 
 
-    async def send_client_list(self, websocket):
-        await websocket.send(self.state_event())
+    def get_client_list_message(self):
+        return json.dumps({"type": int(WebsocketMessageId.CLIENT_LIST), "client_configs": self.client_handler.get_client_configs()})
 
 
-    def state_event(self):
-        return json.dumps({"type": "state", "clients": self.client_handler.get_client_configs()})
-
-
-    async def notify_state(self):
-            message = self.state_event()
-            await self.send_to_all(message)
+    async def send_to_all_but_this(self, websocket, message):
+        other_ws = list(filter(lambda ws: ws != websocket, self.websocket_clients))
+        if other_ws:  # asyncio.wait doesn't accept an empty list
+            await asyncio.wait([ws.send(message) for ws in other_ws])
 
 
     async def send_to_all(self, message):
         if self.websocket_clients:  # asyncio.wait doesn't accept an empty list
-            await asyncio.wait([websocket.send(message) for websocket in self.websocket_clients])
+            await asyncio.wait([ws.send(message) for ws in self.websocket_clients])
 
 
     async def register(self, websocket):
@@ -68,7 +66,7 @@ class WebsocketServer:
         if __debug__:
             print("websocket connected on path: " + str(path))
             print("All connected websockets: " + str(self.websocket_clients))
-        await self.send_client_list(websocket)
+        await websocket.send(self.get_client_list_message())
 
         try:
             async for message in websocket:

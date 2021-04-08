@@ -1,0 +1,13 @@
+const messageId = {
+    CLIENT_LIST_REQUEST: 1,
+    CLIENT_LIST: 2,
+    CLIENT_CONNECTED: 3,
+    CLIENT_DISCONNECTED: 4,
+    CLIENT_VALUE_UPDATED: 5
+}
+
+const clientTypeId = {
+    LED_STRIP_CLIENT: 1,
+    CONTROLLER_CLIENT: 2,
+    GPIO_CLIENT: 3,
+}

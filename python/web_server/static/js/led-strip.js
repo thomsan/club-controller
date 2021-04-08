@@ -1,14 +1,16 @@
-class LEDStrip {
-    constructor(parentDiv, state, websocket){
-        this.id = id;
+class LEDStripUI {
+    constructor(config, parentDiv, websocket){
+        this.config = config;
+        this.parentDiv = parentDiv
         this.websocket = websocket;
         this.div = document.createElement("div");
+        this.title = document.createElement("h3")
         this.colorpicker = document.createElement("input");
         this.colorpicker.type = "color";
-        this.colorpicker.addEventListener('input', onColorChanged);
-        this.sigmaSlider = document.createElement("sgima");
+        this.colorpicker.addEventListener('input', e => this.onColorChanged(e));
+        /*this.sigmaSlider = document.createElement("sgima");
         this.sigmaSlider.type = "range";
-        this.sigmaSlider.addEventListener('input', onSigmaChanged);
+        this.sigmaSlider.addEventListener('input', this.onSigmaChanged);
         this.freqRangeSlider = document.createElement("sgima");
         $(this.freqRangeSlider).slider({
             range: true,
@@ -25,26 +27,31 @@ class LEDStrip {
                     }
                 })
                 console.log(value);
-                websocket.send(value);
+                this.websocket.send(value);
             }
         });
         $( "#freq" ).val(
             $(this.freqRangeSlider).slider("values", 0) + " - " + $(this.freqRangeSlider).slider("values", 1)
         );
-        this.div.appendChild(this.colorpicker)
         this.div.appendChild(this.sigmaSlider)
         this.div.appendChild(this.freqRangeSlider)
-        parentDiv.appendChild(this.div)
+        */
+        this.div.appendChild(this.title);
+        this.div.appendChild(this.colorpicker);
+        this.parentDiv.appendChild(this.div);
+        this.draw()
     }
 
     onColorChanged(e) {
-        // TODO implement websocket protocol
-        let value = JSON.stringify({
-            action: 'color',
-            value: hexToRgb(e.target.value)
-        })
-        console.log("Color changed to " + value);
-        websocket.send(value);
+        let new_color = this.hexToRgb(e.target.value)
+        if(new_color != null){
+            this.config.led_strip_params.color = new_color;
+            let message = JSON.stringify({
+                type: messageId.CLIENT_VALUE_UPDATED,
+                config: this.config
+            })
+            this.websocket.send(message);
+        }
     }
 
     onSigmaChanged(e) {
@@ -53,7 +60,6 @@ class LEDStrip {
             action: 'sigma',
             value: e.target.value
         })
-        console.log(value);
         websocket.send(value);
     }
 
@@ -64,5 +70,31 @@ class LEDStrip {
             g: parseInt(result[2], 16),
             b: parseInt(result[3], 16)
         } : null;
+    }
+
+    componentToHex(c) {
+        var hex = c.toString(16);
+        return hex.length == 1 ? "0" + hex : hex;
+    }
+
+    rgbToHex(c) {
+        return "#" + this.componentToHex(c.r) + this.componentToHex(c.g) + this.componentToHex(c.b);
+    }
+
+    update(config){
+        this.config = config;
+        this.draw();
+    }
+
+    isValidColor(hexColor){
+        return /^#([0-9A-F]{3}){1,2}$/i.test(hexColor)
+    }
+
+    draw(){
+        this.title.textContent = this.config.name
+        let hexColor = this.rgbToHex(this.config.led_strip_params.color)
+        if(this.isValidColor(hexColor)){
+            this.colorpicker.value = hexColor
+        }
     }
 }

@@ -53,6 +53,8 @@ USE_GUI = True
 DISPLAY_FPS = False
 """Whether to display the FPS when running (can reduce performance)"""
 
+PRINT_UDP_STREAM_MESSAGES = False
+
 MAX_PIXELS_PER_PACKET = 126
 """Max number of pixels per UDP packet sent to a client """
 
@@ -110,5 +112,3 @@ DEFAULT_LED_STRIP_PARAMS = {
     },
     "dsp": DEFAULT_DSP_CONFIG
 }
-
-PRINT_UDP_STREAM_MESSAGES = False

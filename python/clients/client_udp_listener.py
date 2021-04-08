@@ -161,3 +161,9 @@ class ClientUDPListener:
             if __debug__:
                 print("Client " + config["name"] + " with ip " + config["ip"] + " is already connected")
             client.send_int_as_byte(ServerMessageId.ALREADY_CONNECTED)
+
+
+    def update_config(self, config):
+        client = self.get_client_by_ip(config["ip"])
+        if client:
+            client.config = config

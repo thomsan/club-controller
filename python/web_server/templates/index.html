@@ -14,16 +14,14 @@
 
 <body>
     <h1>Hello Clubbing World</h1>
-    <h3>Smoke</h3>
-    <div id="smoke-button"></div>
-    <h1>LED Strips</h1>
-    {% for led_strip in led_strips %}
-        <div id=led_strip.id>
-            {% include "led-strip.html" %}
-        </div>
-    {% endfor %}
-
+    <div id="clients"></div>
+    <script src="/static/js/protocol.js"></script>
+    <script src="/static/js/led-strip.js"></script>
     <script src="/static/js/main.js"></script>
 </body>
+
+<footer>
+    <div>Made by <a href="https://www.thomasascioglu.com">Thomas Ascioglu</a> with &#10084;</div>
+</footer>
 
 </html>

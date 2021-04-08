@@ -1,98 +1,62 @@
-const server_ip = '127.0.0.1';
-let audioServerWebsocket;
+let clientUis = []
+const serverIp = '127.0.0.1';
+const websocketPort = 6789
+const ws = new WebSocket('ws://' + serverIp + ':'+ websocketPort + '/');
+ws.onmessage = ({data}) => {
+    let message = JSON.parse(data);
+    switch (message.type) {
+        case messageId.CLIENT_LIST:
+            message.client_configs.forEach(config  => {
+                let clientUi = clientUis.find(c => c.config.ip == config.ip)
+                if(clientUi){
+                    clientUi.update(config)
+                } else{
+                    createClientUI(config)
+                }
+            });
+            break;
+        case messageId.CLIENT_CONNECTED:
+            createClientUI(message.config)
+            break;
+        default:
+            console.error(
+                "unsupported message", data);
+    }
+};
 
-function setGpioPin(id, value) {
-    const url = 'http://127.0.0.1:5000/gpio'
-    let data = { id: id, value: value };
-
-    fetch(url, {
-        method: "POST",
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    }).then(res => {
-        console.log("Request complete! response:", res);
-    });
-}
-
-function setColor(value) {
-    const url = 'http://127.0.0.1:5000/color'
-    let data = { value: value };
-
-    fetch(url, {
-        method: "POST",
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    }).then(res => {
-        console.log("Request complete! response:", res);
-    });
-}
-
-function onGpioButtonClick(buttonEl, id) {
-    if (buttonEl.className == "disabled") {
-        buttonEl.className = "";
-        console.log("enabled")
-        setGpioPin(id, true);
-    } else {
-        buttonEl.className = "disabled";
-        console.log("disabled");
-        setGpioPin(id, false);
+function createClientUI(config){
+    let parentDiv = document.getElementById('clients')
+    switch (config.typeId){
+        case clientTypeId.LED_STRIP_CLIENT:
+            clientUis.push(new LEDStripUI(config, parentDiv, ws))
+            break;
+        case clientTypeId.CONTROLLER_CLIENT:
+            console.warn("CONTROLLER_CLIENT not implemented yet")
+            break;
+        case clientTypeId.GPIO_CLIENT:
+            console.warn("GPIO_CLIENT not implemented yet")
+            break;
+        default:
+            console.error("Client typeId not implemented: " + config.typeId)
+            break;
     }
 }
 
-function addButton(elementId, text, id, active) {
-    var buttonEl = document.createElement("button");
-    if (!active) {
-        buttonEl.className = "disabled";
-    } else {
-        buttonEl.className = "";
-    }
-    buttonEl.id = "button-gpio-" + id;
-    buttonEl.addEventListener('click', function () { onGpioButtonClick(buttonEl, id); }, false);
-
-    var buttonTextEl = document.createElement("span");
-    buttonTextEl.className = "button-text";
-    buttonTextEl.innerText = text;
-    buttonEl.appendChild(buttonTextEl);
-    document.getElementById(elementId).appendChild(buttonEl);
+function getLedStripsHtml(ledStripConfigs){
+    const html = ledStripConfigs.map((config) => {
+        return `
+            <div id=${config.ip}">
+                <label for="favcolor">Color:</label>
+                <input id="colorpicker" type="color" id="colorpicker" value="${rgbToHex(config.led_strip_params.color)}">
+            </div>
+            `;
+    }).join('');
+    return `<div class="led-strips">${html}</div>`;
 }
 
-
-function initUI() {
-    const url = 'http://' + server_ip + ':5000/gpio'
-    fetch(url)
-        .then(response => response.json())
-        .then(json => {
-            console.log("Received GPIO status: " + json);
-            console.log(json)
-            addButton("smoke-button", "Smoke", 4, json[4])
-        })
+function drawClientUis(configs){
+    let ledStripConfigs = configs.filter(config => config.typeId == clientTypeId.LED_STRIP_CLIENT);
+    let ledStripsHtml = getLedStripsHtml(ledStripConfigs)
+    const html = ledStripsHtml;
+    document.getElementById('clients').innerHTML = html;
 }
-
-function setupWebsocket() {
-    audioServerWebsocket = new WebSocket('ws://' + server_ip + ':6789/');
-    audioServerWebsocket.onmessage = function (event) {
-        let data = JSON.parse(event.data);
-        console.log(data)
-        switch (data.type) {
-            case 'state':
-                //value.textContent = data.value;
-                break;
-            case 'users':
-                //users.textContent = (
-                //    data.count.toString() + " user" +
-                //    (data.count == 1 ? "" : "s"));
-                break;
-            default:
-                console.error(
-                    "unsupported event", data);
-        }
-    };
-}
-
-
-//initUI()
-setupWebsocket();

@@ -1,7 +1,7 @@
 #run: export FLASK_DEBUG=0
 #run: export FLASK_APP=python/web_server/server.py
 run:
-	python -O python/web-web_server/server.py
+	python -O python/web_server/server.py
 
 #run-debug: export FLASK_ENV=development
 #run-debug: export FLASK_APP=python/web_server/server.py
