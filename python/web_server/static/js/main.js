@@ -7,22 +7,46 @@ ws.onmessage = ({data}) => {
     switch (message.type) {
         case messageId.CLIENT_LIST:
             message.client_configs.forEach(config  => {
-                let clientUi = clientUis.find(c => c.config.ip == config.ip)
-                if(clientUi){
-                    clientUi.update(config)
-                } else{
-                    createClientUI(config)
-                }
+                getClientUi(config)
+                    .then(clientUi => {
+                        clientUi.update(config)
+                    },
+                    () => {
+                        createClientUI(config)
+                    });
             });
             break;
         case messageId.CLIENT_CONNECTED:
             createClientUI(message.config)
             break;
+        case messageId.CLIENT_DISCONNECTED:
+            getClientUi(message.config)
+                .then(clientUi => {
+                    clientUi.remove()
+                    const index = clientUis.indexOf(clientUi);
+                    if(index > -1){
+                        clientUis.splice(index, 1);
+                    }
+                },
+                () => {
+                    // local client reference is already removed
+                });
+            break;
         default:
-            console.error(
-                "unsupported message", data);
+            console.error("Received messageId which is not implemented: ", message.type);
     }
 };
+
+function getClientUi(config){
+    return new Promise((resolve, reject) => {
+        let clientUi = clientUis.find(c => c.config.ip == config.ip)
+        if(clientUi){
+            resolve(clientUi)
+        } else{
+            reject()
+        }
+    });
+}
 
 function createClientUI(config){
     let parentDiv = document.getElementById('clients')
@@ -40,23 +64,4 @@ function createClientUI(config){
             console.error("Client typeId not implemented: " + config.typeId)
             break;
     }
-}
-
-function getLedStripsHtml(ledStripConfigs){
-    const html = ledStripConfigs.map((config) => {
-        return `
-            <div id=${config.ip}">
-                <label for="favcolor">Color:</label>
-                <input id="colorpicker" type="color" id="colorpicker" value="${rgbToHex(config.led_strip_params.color)}">
-            </div>
-            `;
-    }).join('');
-    return `<div class="led-strips">${html}</div>`;
-}
-
-function drawClientUis(configs){
-    let ledStripConfigs = configs.filter(config => config.typeId == clientTypeId.LED_STRIP_CLIENT);
-    let ledStripsHtml = getLedStripsHtml(ledStripConfigs)
-    const html = ledStripsHtml;
-    document.getElementById('clients').innerHTML = html;
 }
