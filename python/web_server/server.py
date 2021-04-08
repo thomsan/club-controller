@@ -82,7 +82,7 @@ if __name__ == '__main__':
             min_volume_threshold=app_config.MIN_VOLUME_THRESHOLD)
         websocket_server = WebsocketServer(client_handler=client_handler)
         websocket_server.run()
-        flask_server_thread = Thread(target=app.run, name="Flask-Server-Thread")
+        flask_server_thread = Thread(target=app.run, kwargs={'host': "0.0.0.0"}, name="Flask-Server-Thread")
         flask_server_thread.setDaemon(True)
         flask_server_thread.start()
         audio_server_thread = Thread(target=audio_server.run, name="Audio-Server-Thread")
@@ -93,6 +93,7 @@ if __name__ == '__main__':
         is_running = True
         while is_running:
             sleep(1000)
+
 
     except KeyboardInterrupt:
         print('\nInterrupted via Keyboard\n')
