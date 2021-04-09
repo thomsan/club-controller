@@ -3,7 +3,8 @@ const messageId = {
     CLIENT_LIST: 2,
     CLIENT_CONNECTED: 3,
     CLIENT_DISCONNECTED: 4,
-    CLIENT_VALUE_UPDATED: 5
+    CLIENT_VALUE_UPDATED: 5,
+    ALL_LED_STRIPS_UPDATED: 6
 }
 
 const clientTypeId = {

@@ -60,7 +60,9 @@ class ClientUDPListener:
     def stop(self):
         for client in self.get_clients():
             client.stop()
+        self.clients_dict_lock.aquire()
         self.clients_dict = {}
+        self.clients_dict_lock.release()
         self.is_running = False
 
         try:
@@ -167,3 +169,15 @@ class ClientUDPListener:
         client = self.get_client_by_ip(config["ip"])
         if client:
             client.config = config
+
+
+    def update_all(self, data):
+        self.clients_dict_lock.acquire()
+        for key, value in data.items():
+            if key == "effect_id":
+                for ip, client in self.clients_dict.items():
+                    client.config["led_strip_params"]["effect_id"] = int(value)
+            if key == "color":
+                for ip, client in self.clients_dict.items():
+                    client.config["led_strip_params"]["color"] = value
+        self.clients_dict_lock.release()

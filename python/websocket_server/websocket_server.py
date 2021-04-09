@@ -5,16 +5,10 @@
 import asyncio
 import json
 import threading
-from enum import IntEnum
-from python import config as app_config
-import websockets
 
-class WebsocketMessageId(IntEnum):
-    CLIENT_LIST_REQUEST = 1
-    CLIENT_LIST = 2
-    CLIENT_CONNECTED = 3
-    CLIENT_DISCONNECTED = 4
-    CLIENT_VALUE_UPDATED = 5
+import websockets
+from python import config as app_config
+from python.protocol.message_ids import WebsocketMessageId
 
 
 class WebsocketServer:
@@ -25,17 +19,21 @@ class WebsocketServer:
 
     async def on_message_received(self, websocket, message):
         data = json.loads(message)
-        if WebsocketMessageId(data["type"]) == WebsocketMessageId.CLIENT_LIST_REQUEST:
+        message_id = WebsocketMessageId(data["type"])
+        if  message_id == WebsocketMessageId.CLIENT_LIST_REQUEST:
             await self.websocket.send(self.get_client_list_message())
-        elif WebsocketMessageId(data["type"]) == WebsocketMessageId.CLIENT_VALUE_UPDATED:
+        elif message_id == WebsocketMessageId.CLIENT_VALUE_UPDATED:
             # TODO only send updated data
             if __debug__:
                 print("Received update from client:  {}", data)
             self.client_handler.update_config(data["config"])
             await self.send_to_all_but_this(websocket, self.get_client_list_message())
+        elif message_id == WebsocketMessageId.ALL_LED_STRIPS_UPDATED:
+            self.client_handler.update_all(data["data"])
+            await self.send_to_all(self.get_client_list_message())
         else:
             if __debug__:
-                print("unsupported event: {}", data)
+                print("Message id not implemented: ", message_id)
 
 
     def get_client_list_message(self):
