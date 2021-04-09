@@ -8,7 +8,7 @@ from python.audio_udp_server.audio_server import AudioServer
 from python.clients.client_udp_listener import ClientUDPListener
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from python.websocket_server.websocket_server import WebsocketServer
-from python.web_server import esp8226_udp
+
 
 app = Flask(__name__, static_url_path='/static')
 color = "#ffff"
