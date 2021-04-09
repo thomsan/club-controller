@@ -27,37 +27,6 @@ def byte_to_bool_array(bytes):
     return values
 
 
-@app.route('/gpio', methods=['GET', 'POST'])
-def gpio():
-    if request.method == 'GET':
-        values = byte_to_bool_array(esp8226_udp.values)
-        print(values)
-        return jsonify(values)
-
-    else:
-        data = request.json
-        if(data["value"]):
-            esp8226_udp.values[data["id"]] = 1
-        else:
-            esp8226_udp.values[data["id"]] = 0
-        esp8226_udp.update()
-        return jsonify(byte_to_bool_array(esp8226_udp.values))
-
-
-@app.route('/color', methods=['GET', 'POST'])
-def color():
-    global color
-    if request.method == 'GET':
-        print(color)
-        return jsonify(color)
-
-    else:
-        data = request.json
-        if(data["value"]):
-            color = data["value"]
-        return jsonify(color)
-
-
 def run_audio_server_async():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
