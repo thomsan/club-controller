@@ -132,7 +132,7 @@ class LEDStripClientUI {
     }
 
     onColorChanged(e) {
-        let new_color = this.hexToRgb(e.target.value)
+        let new_color = hexToRgb(e.target.value)
         if(new_color != null){
             this.config.led_strip_params.color = new_color;
             this.send_config_update()
