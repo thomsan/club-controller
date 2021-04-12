@@ -20,7 +20,14 @@
 #define BUFFER_LEN 1024
 // Toggles FPS output (1 = print FPS over serial, 0 = disable output)
 #define PRINT_FPS 0
-const char* clientName = "YOUR_CLIENT_NAME";
+
+// Network information
+#define DHCP 1 // 0: DHCP off => set network configuration below, 1: DHCP active (auto ip)
+IPAddress ip(192, 168, 178, 46);
+IPAddress broadcast(192, 168, 178, 255);
+// Set gateway to your router's gateway
+IPAddress gateway(192, 168, 178, 1);
+IPAddress subnet(255, 255, 255, 0);
 
 DynamicJsonDocument configJson(1024);
 char configJsonString[BUFFER_LEN] = "{"
@@ -95,13 +102,6 @@ WiFiUDP broadcastUdpPort;
 
 bool isConnectedToServer = false;
 
-// Network information
-IPAddress ip(192, 168, 178, 44);
-IPAddress broadcast(192, 168, 178, 255);
-// Set gateway to your router's gateway
-IPAddress gateway(192, 168, 178, 1);
-IPAddress subnet(255, 255, 255, 0);
-
 RgbColor red(10,0,0);
 RgbColor green(0,10,0);
 RgbColor blue(0,0,10);
@@ -114,8 +114,11 @@ void setup() {
     flashPattern(red, 5, 50);
     clearLedStrip();
 
+    #if DHCP
     WiFi.config(ip, gateway, subnet);
+    #else
     WiFi.begin(ssid, password);
+    #endif
     Serial.println("");
     // Connect to wifi and print the IP address over serial
     while (WiFi.status() != WL_CONNECTED) {
