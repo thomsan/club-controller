@@ -123,6 +123,7 @@ void setup() {
     // Connect to wifi and print the IP address over serial
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
+        flashPattern(red, 2, 20);
         Serial.print(".");
     }
     Serial.println("Connected to WIFI");
