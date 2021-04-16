@@ -5,10 +5,10 @@ import pyaudio
 
 """ Takes care of audio input sources"""
 class AudioInput:
-    def __init__(self, mic_rate, samples_per_frame):
+    def __init__(self, mic_rate, frames_per_buffer):
       self.is_running = False
       self.mic_rate = mic_rate
-      self.samples_per_frame = samples_per_frame
+      self.frames_per_buffer = frames_per_buffer
 
     def run(self, callback):
         p = pyaudio.PyAudio()
@@ -16,7 +16,7 @@ class AudioInput:
                         channels=1,
                         rate=self.mic_rate,
                         input=True,
-                        frames_per_buffer=self.samples_per_frame)
+                        frames_per_buffer=self.frames_per_buffer)
         overflows = 0
         prev_ovf_time = time.time()
         self.is_running = True
