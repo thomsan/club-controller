@@ -41,14 +41,7 @@ if __name__ == '__main__':
         client_handler = ClientUDPListener()
         client_handler_thread = Thread(target=client_handler.run, name="UDP-Listener-Thread")
 
-        audio_server = AudioServer(
-            client_handler=client_handler,
-            print_fps=False,
-            use_gui=True,
-            gui_dsp_config=app_config.DEFAULT_DSP_CONFIG,
-            desired_fps=app_config.FPS,
-            mic_rate=app_config.MIC_RATE,
-            min_volume_threshold=app_config.MIN_VOLUME_THRESHOLD)
+        audio_server = AudioServer(client_handler)
         websocket_server = WebsocketServer(client_handler=client_handler)
         websocket_server.run()
         flask_server_thread = Thread(target=app.run, kwargs={'host': "0.0.0.0"}, name="Flask-Server-Thread")
