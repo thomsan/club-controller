@@ -20,26 +20,26 @@ class LedStripClient(Client):
     #_max_led_FPS = int(((N_PIXELS * 30e-6) + 50e-6)**-1.0)
     #assert FPS <= _max_led_FPS, 'FPS must be <= {}'.format(_max_led_FPS)
 
-    def __init__(self, config, led_strip_params):
+    def __init__(self, config):
         # TODO validate config
-        self.led_strip_params = led_strip_params
-        self.led_strip_params_lock = Lock()
-        self.pixels = np.tile(1, (3, self.led_strip_params["num_pixels"]))
+        self.config = config
+        self.config_lock = Lock()
+        self.pixels = np.tile(1, (3, self.config["led_strip_params"]["num_pixels"]))
         self.pixel_lock = Lock()
-        self.p = np.tile(1.0, (3, self.led_strip_params["num_pixels"] // 2))
-        self.p_filt = ExpFilter(np.tile(0, (3, self.led_strip_params["num_pixels"] // 2)),
+        self.p = np.tile(1.0, (3, self.config["led_strip_params"]["num_pixels"] // 2))
+        self.p_filt = ExpFilter(np.tile(0, (3, self.config["led_strip_params"]["num_pixels"] // 2)),
                         alpha_decay=0.1, alpha_rise=0.99)
-        self.gain = ExpFilter(np.tile(0.01, self.led_strip_params["num_pixels"] // 2),
+        self.gain = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
                         alpha_decay=0.001, alpha_rise=0.99)
-        self.prev_pixels = np.tile(0, (3, self.led_strip_params["num_pixels"]))
-        self.prev_spectrum = np.tile(0.01, self.led_strip_params["num_pixels"] // 2)
-        self.r_filt = ExpFilter(np.tile(0.01, self.led_strip_params["num_pixels"] // 2),
+        self.prev_pixels = np.tile(0, (3, self.config["led_strip_params"]["num_pixels"]))
+        self.prev_spectrum = np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2)
+        self.r_filt = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
                             alpha_decay=0.2, alpha_rise=0.99)
-        self.g_filt = ExpFilter(np.tile(0.01, self.led_strip_params["num_pixels"] // 2),
+        self.g_filt = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
                             alpha_decay=0.05, alpha_rise=0.3)
-        self.b_filt = ExpFilter(np.tile(0.01, self.led_strip_params["num_pixels"] // 2),
+        self.b_filt = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
                             alpha_decay=0.1, alpha_rise=0.5)
-        self.common_mode = ExpFilter(np.tile(0.01, self.led_strip_params["num_pixels"] // 2),
+        self.common_mode = ExpFilter(np.tile(0.01, self.config["led_strip_params"]["num_pixels"] // 2),
                             alpha_decay=0.99, alpha_rise=0.01)
         super().__init__(ClientTypeId.LED_STRIP_CLIENT, config)
 
@@ -51,14 +51,14 @@ class LedStripClient(Client):
             fft_data (np.ndarray): Fft data in the range 0 - 1
         """
 
-        self.led_strip_params_lock.acquire()
-        effect_id = EffectId(self.led_strip_params["effect_id"])
+        self.config_lock.acquire()
+        effect_id = EffectId(self.config["led_strip_params"]["effect_id"])
 
         # get chosen frequency range
         # fft_data spans from 0 to SAMPLING_RATE/2 Hz with spacing SAMPLING_RATE/len(fft_dat)
         spacing = app_config.SAMPLE_RATE / 2 / len(fft_data)
-        i_min_freq = int(self.led_strip_params["frequency"]["min"] / spacing)
-        i_max_freq = int(self.led_strip_params["frequency"]["max"] / spacing)
+        i_min_freq = int(self.config["led_strip_params"]["frequency"]["min"] / spacing)
+        i_max_freq = int(self.config["led_strip_params"]["frequency"]["max"] / spacing)
         mapped_fft_data = fft_data[i_min_freq:i_max_freq]
 
         if(effect_id == EffectId.COLORED_ENERGY):
@@ -72,31 +72,30 @@ class LedStripClient(Client):
         else:
             if __debug__:
                 print("Unkown effectId: " + str(effect_id))
-            pixel_values = np.zeros(self.led_strip_params["num_pixels"])
+            pixel_values = np.zeros(self.config["led_strip_params"]["num_pixels"])
 
-        self.led_strip_params_lock.release()
+        self.config_lock.release()
         self.pixel_lock.acquire()
         self.pixels = pixel_values
         self.pixel_lock.release()
 
 
     def update_parameters(self, new_parameters):
-        self.led_strip_params_lock.acquire()
-        self.led_strip_params = new_parameters
-        self.led_strip_params_lock.release()
+        self.config_lock.acquire()
+        self.config["led_strip_params"] = new_parameters
+        self.config_lock.release()
 
 
     def get_pixel_values_colored_energy(self, fft_data):
         """Effect that expands from the center with increasing sound energy and set color"""
-        y = interpolate(fft_data, self.led_strip_params["num_pixels"]//2)
-        #y = np.copy(fft_data)
+        y = interpolate(fft_data, self.config["led_strip_params"]["num_pixels"]//2)
         self.gain.update(y)
         # TODO check what's the difference to above: self.gain.update(np.max(gaussian_filter1d(interpolated_fft_data, sigma=1.0)))
         y /= self.gain.value
         # Scale by the width of the LED strip
-        y *= float((self.led_strip_params["num_pixels"] // 2) - 1)
+        y *= float((self.config["led_strip_params"]["num_pixels"] // 2) - 1)
         # Map color channels according to set color and the energy over the freq bands
-        color = self.led_strip_params["color"]
+        color = self.config["led_strip_params"]["color"]
         i_on = int(np.mean(y))
 
         # Assign color to different frequency regions
@@ -109,9 +108,9 @@ class LedStripClient(Client):
         self.p_filt.update(self.p)
         p = np.round(self.p_filt.value)
         # Apply substantial blur to smooth the edges
-        p[0, :] = gaussian_filter1d(p[0, :], sigma=float(self.led_strip_params["sigma"]))
-        p[1, :] = gaussian_filter1d(p[1, :], sigma=float(self.led_strip_params["sigma"]))
-        p[2, :] = gaussian_filter1d(p[2, :], sigma=float(self.led_strip_params["sigma"]))
+        p[0, :] = gaussian_filter1d(p[0, :], sigma=float(self.config["led_strip_params"]["sigma"]))
+        p[1, :] = gaussian_filter1d(p[1, :], sigma=float(self.config["led_strip_params"]["sigma"]))
+        p[2, :] = gaussian_filter1d(p[2, :], sigma=float(self.config["led_strip_params"]["sigma"]))
         return np.concatenate((p[:, ::-1], p), axis=1)
 
 
@@ -121,7 +120,7 @@ class LedStripClient(Client):
         self.gain.update(y)
         y /= self.gain.value
         # Scale by the width of the LED strip
-        y *= float((self.led_strip_params["num_pixels"] // 2) - 1)
+        y *= float((self.config["led_strip_params"]["num_pixels"] // 2) - 1)
         # Map color channels according to energy in the different freq bands
         scale = 0.9
         r = int(np.mean(y[:len(y) // 3]**scale))
@@ -166,7 +165,7 @@ class LedStripClient(Client):
 
     def get_pixel_values_spectrum(self, mel_data):
         """Effect that maps the Mel filterbank frequencies onto the LED strip"""
-        y = np.copy(interpolate(mel_data, self.led_strip_params["num_pixels"] // 2))
+        y = np.copy(interpolate(mel_data, self.config["led_strip_params"]["num_pixels"] // 2))
         self.common_mode.update(y)
         diff = y - self.prev_spectrum
         self.prev_spectrum = np.copy(y)
@@ -208,3 +207,19 @@ class LedStripClient(Client):
             m = bytes(m)
             self.send_message(ServerMessageId.LED_STRIP_UPDATE, m)
         self.prev_pixels = np.copy(p)
+
+
+    def update_config(self, new_config):
+        if self.validate_config(new_config):
+            self.config = new_config
+        else:
+            if __debug__:
+                print("Couldn't update config: invalid config")
+
+    def validate_config(self, config):
+        # TODO
+        if config["led_strip_params"]["frequency"]["min"] > config["led_strip_params"]["frequency"]["max"]:
+            tmp = config["led_strip_params"]["frequency"]["min"]
+            config["led_strip_params"]["frequency"]["min"] = config["led_strip_params"]["frequency"]["max"]
+            config["led_strip_params"]["frequency"]["max"] = tmp
+        return True

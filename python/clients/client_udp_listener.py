@@ -31,7 +31,6 @@ class ClientUDPListener:
 
         with open(app_config.SETTINGS_FILE_PATH) as json_file:
             data = json.load(json_file)
-            print(data)
             for client_config in data['client_configs']:
                 client = self.create_client(client_config)
                 if client != None:
@@ -195,7 +194,8 @@ class ClientUDPListener:
 
         if(client_type_id == ClientTypeId.LED_STRIP_CLIENT):
             config["name"] = "DEFAULT NAME LED STRIP"
-            client = LedStripClient(config, copy.deepcopy(app_config.DEFAULT_LED_STRIP_PARAMS))
+            config["led_strip_params"] = copy.deepcopy(app_config.DEFAULT_LED_STRIP_PARAMS)
+            client = LedStripClient(config)
         elif(client_type_id == ClientTypeId.CONTROLLER_CLIENT):
             config["name"] = "DEFAULT NAME Controller"
             client = ControllerClient(config)
@@ -208,9 +208,9 @@ class ClientUDPListener:
         return client
 
     def update_config(self, config):
-        client = self.get_client_by_ip(config["ip"])
+        client = self.get_client_by_mac(config["mac"])
         if client:
-            client.config = config
+            client.update_config(config)
 
 
     def update_all(self, data):
@@ -218,16 +218,14 @@ class ClientUDPListener:
         for key, value in data.items():
             if key == "effect_id":
                 for client in self.get_led_strip_clients():
-                    client.led_strip_params["effect_id"] = int(value)
+                    client.config["led_strip_params"]["effect_id"] = int(value)
             if key == "color":
                 for client in self.get_led_strip_clients():
-                    client.led_strip_params["color"] = value
+                    client.config["led_strip_params"]["color"] = value
         self.clients_lock.release()
 
     def save_settings_file(self):
         data = {}
         data["client_configs"] = list(map(lambda c : c.config, self.clients))
-        print("data:")
-        print(data)
         with open(app_config.SETTINGS_FILE_PATH, "w") as f:
             json.dump(data, f)
