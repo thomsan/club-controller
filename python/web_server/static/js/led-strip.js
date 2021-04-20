@@ -88,37 +88,27 @@ class LEDStripClientUI {
             this.effectSelector.options.add( new Option(key,value) )
         }
         this.effectSelector.value = config.led_strip_params.effect_id
-        /*this.sigmaSlider = document.createElement("sgima");
+        this.sigmaSlider = document.createElement("input");
         this.sigmaSlider.type = "range";
-        this.sigmaSlider.addEventListener('input', this.onSigmaChanged);
-        this.freqRangeSlider = document.createElement("sgima");
-        $(this.freqRangeSlider).slider({
-            range: true,
-            min: 0,
-            max: 12000,
-            values: [ 50, 1000 ],
-            slide: function( event, ui ) {
-                $("#freq").val(ui.values[0] + " - " + ui.values[1]);
-                let value = JSON.stringify({
-                    action: 'frequency',
-                    value: {
-                        min: ui.values[0],
-                        max: ui.values[1]
-                    }
-                })
-                console.log(value);
-                this.websocket.send(value);
-            }
-        });
-        $( "#freq" ).val(
-            $(this.freqRangeSlider).slider("values", 0) + " - " + $(this.freqRangeSlider).slider("values", 1)
-        );
-        this.div.appendChild(this.sigmaSlider)
-        this.div.appendChild(this.freqRangeSlider)
-        */
+        this.sigmaSlider.min = 1.0
+        this.sigmaSlider.max = 30.0
+        this.sigmaSlider.addEventListener('input', e => this.onSigmaChanged(e));
+        this.freqSliderMin = document.createElement("input");
+        this.freqSliderMin.type = "range";
+        this.freqSliderMin.min = 1
+        this.freqSliderMin.max = 12000
+        this.freqSliderMin.addEventListener('input', e => this.onFreqMinChanged(e));
+        this.freqSliderMax = document.createElement("input");
+        this.freqSliderMax.type = "range";
+        this.freqSliderMax.min = 50
+        this.freqSliderMax.max = 12000
+        this.freqSliderMax.addEventListener('input', e => this.onFreqMaxChanged(e));
         this.div.appendChild(this.title);
         this.div.appendChild(this.colorpicker);
         this.div.appendChild(this.effectSelector);
+        this.div.appendChild(this.sigmaSlider)
+        this.div.appendChild(this.freqSliderMin)
+        this.div.appendChild(this.freqSliderMax)
         this.parentDiv.appendChild(this.div);
         this.draw()
     }
@@ -145,12 +135,27 @@ class LEDStripClientUI {
     }
 
     onSigmaChanged(e) {
-        // TODO implement websocket protocol
-        let value = JSON.stringify({
-            action: 'sigma',
-            value: e.target.value
-        })
-        websocket.send(value);
+        let new_sigma = Math.min(Math.max(e.target.value, this.sigmaSlider.min), this.sigmaSlider.max)
+        this.config.led_strip_params.sigma = new_sigma;
+        this.send_config_update()
+    }
+
+    onFreqMinChanged(e) {
+        let new_freq_min = e.target.value
+        if(parseInt(new_freq_min) > parseInt(this.freqSliderMax.value)){
+            this.freqSliderMax.value = new_freq_min;
+        }
+        this.config.led_strip_params.frequency.min = parseInt(new_freq_min);
+        this.send_config_update()
+    }
+
+    onFreqMaxChanged(e) {
+        let new_freq_max = e.target.value
+        if(parseInt(new_freq_max) < parseInt(this.freqSliderMin.value)){
+            this.freqSliderMin.value = new_freq_max;
+        }
+        this.config.led_strip_params.frequency.max = parseInt(new_freq_max);
+        this.send_config_update()
     }
 
     update(config){
@@ -167,6 +172,9 @@ class LEDStripClientUI {
         if(this.effectSelector.value != this.config.led_strip_params.effect_id){
             this.effectSelector.value = this.config.led_strip_params.effect_id
         }
+        this.sigmaSlider.value = this.config.led_strip_params.sigma
+        this.freqSliderMin.value = this.config.led_strip_params.frequency.min
+        this.freqSliderMax.value = this.config.led_strip_params.frequency.max
     }
 
     remove(){
