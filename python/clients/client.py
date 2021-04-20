@@ -63,7 +63,8 @@ class Client:
         self.timeout.start()
 
 class ClientConfig:
-    def __init__(self, ip, port, name):
+    def __init__(self, ip, port, mac, name):
         self.ip = ip
         self.port = port
+        self.mac = mac
         self.name = name

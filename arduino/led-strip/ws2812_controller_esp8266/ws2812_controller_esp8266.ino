@@ -20,28 +20,16 @@
 #define BUFFER_LEN 1024
 // Toggles FPS output (1 = print FPS over serial, 0 = disable output)
 #define PRINT_FPS 0
-const char* clientName = "YOUR_CLIENT_NAME";
+
+// Network information
+#define DHCP 1 // 0: DHCP off => set network configuration below, 1: DHCP active (auto ip)
+IPAddress ip(192, 168, 178, 46);
+IPAddress broadcast(192, 168, 178, 255);
+// Set gateway to your router's gateway
+IPAddress gateway(192, 168, 178, 1);
+IPAddress subnet(255, 255, 255, 0);
 
 DynamicJsonDocument configJson(1024);
-char configJsonString[BUFFER_LEN] = "{"
-  "\"effect_id\": 1,"
-  "\"sigma\": 1,"
-  "\"color\": {"
-    "\"r\": 255,"
-    "\"g\": 0,"
-    "\"b\": 0"
-  "},"
-  "\"dsp\": {"
-    "\"n_rolling_history\": 2,"
-    "\"n_fft_bins\": 24,"
-    "\"frequency\": {"
-      "\"min\": 50,"
-      "\"max\": 12000"
-    "},"
-    "\"fps\": 30"
-  "}"
-"}";
-
 typedef enum {
     CONNECT = 1,
     DISCONNECT = 2,
@@ -95,13 +83,6 @@ WiFiUDP broadcastUdpPort;
 
 bool isConnectedToServer = false;
 
-// Network information
-IPAddress ip(192, 168, 178, 44);
-IPAddress broadcast(192, 168, 178, 255);
-// Set gateway to your router's gateway
-IPAddress gateway(192, 168, 178, 1);
-IPAddress subnet(255, 255, 255, 0);
-
 RgbColor red(10,0,0);
 RgbColor green(0,10,0);
 RgbColor blue(0,0,10);
@@ -114,12 +95,16 @@ void setup() {
     flashPattern(red, 5, 50);
     clearLedStrip();
 
+    #if DHCP
     WiFi.config(ip, gateway, subnet);
+    #else
     WiFi.begin(ssid, password);
+    #endif
     Serial.println("");
     // Connect to wifi and print the IP address over serial
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
+        flashPattern(red, 2, 20);
         Serial.print(".");
     }
     Serial.println("Connected to WIFI");
@@ -188,11 +173,8 @@ void loop() {
 
 void setupConfigJson(){
     DynamicJsonDocument ledStripParamsJson(1024);
-    deserializeJson(ledStripParamsJson, configJsonString);
-    ledStripParamsJson["num_pixels"] = NUM_LEDS;
     configJson["typeId"] = clientType;
-    configJson["name"] = clientName;
-    configJson["led_strip_params"] =  ledStripParamsJson;
+    configJson["mac"] = WiFi.macAddress();
     configJson["ip"] = ipAddress2String(WiFi.localIP());
     configJson["port"] = localPort;
 }
@@ -272,10 +254,6 @@ void onLedStripUpdateMessage(int len, char *buffer){
         RgbColor pixel((uint8_t)buffer[i+1], (uint8_t)buffer[i+2], (uint8_t)buffer[i+3]);
         ledstrip.SetPixelColor(N, pixel);
     }
-    // TODO always clear the pixels which are not present in the buffer and delete below
-    if(len==0){
-      clearLedStrip();
-    }
     #if DEBUG
     Serial.printf("Received LED Strip update\n");
     #endif
@@ -298,6 +276,11 @@ void printWifiStatus() {
 
   Serial.println(ip);
 
+  Serial.print("MAC Address: ");
+
+  Serial.println(WiFi.macAddress());
+
+
   // print the received signal strength:
 
   long rssi = WiFi.RSSI();
@@ -314,7 +297,7 @@ void clearLedStrip(){
   for(int i=0; i<NUM_LEDS; i++) {
     ledstrip.SetPixelColor(i, off);
   }
-  Serial.printf("LED Strip reset\n");
+  Serial.printf("LED Strip cleared\n");
   ledstrip.Show();
 }
 

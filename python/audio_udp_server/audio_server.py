@@ -4,47 +4,45 @@ import sys
 import time
 from threading import Thread
 
-import python.config as app_config
 import numpy as np
 import pyqtgraph as pg
+import python.config as app_config
 from pyqtgraph.Qt import QtCore, QtGui
+from python.audio_udp_server.dsp import interpolate
+from python.clients.client import ClientTypeId
+from python.clients.client_udp_listener import ClientUDPListener
 from scipy.ndimage.filters import gaussian_filter1d
 
 from .audio_input import AudioInput
-from python.clients.client import ClientTypeId
 from .dsp import Dsp
 from .filters import ExpFilter
-from python.clients.client_udp_listener import ClientUDPListener
+from .fps import FpsCounter
 
 """
 Audio server
 processes the audio input for each client and sends data via UDP connection.
 """
 class AudioServer:
-    def __init__(self, client_handler, print_fps, use_gui, gui_dsp_config, desired_fps, mic_rate, min_volume_threshold):
-        """The previous time that the frames_per_second() function was called"""
-        self._time_prev = time.time() * 1000.0
-        """The low-pass filter used to estimate frames-per-second"""
-        self._fps = ExpFilter(val=desired_fps, alpha_decay=0.2, alpha_rise=0.2)
-        """Number of audio samples to read every time frame"""
-        self.samples_per_frame = int(mic_rate / desired_fps)
-        """Array containing the rolling audio sample window"""
-        self.y_roll = np.random.rand(gui_dsp_config["n_rolling_history"], self.samples_per_frame) / 1e16
-        self.fft_plot_filter = ExpFilter(np.tile(1e-1, gui_dsp_config["n_fft_bins"]), alpha_decay=0.5, alpha_rise=0.99)
-        self.volume = ExpFilter(min_volume_threshold, alpha_decay=0.02, alpha_rise=0.02)
-        self.prev_fps_update = time.time()
+    def __init__(self, client_handler):
         self.client_handler = client_handler
-        self.print_fps = print_fps
-        self.gui_dsp_config = copy.deepcopy(gui_dsp_config)
-        self.desired_fps = desired_fps
-        self.mic_rate = mic_rate
-        self.use_gui = use_gui
+        self.samples_per_frame = int(app_config.SAMPLE_RATE / app_config.FPS)
+        self.gui_freq_min = 0
+        self.gui_freq_max = app_config.SAMPLE_RATE/2
+        self.n_gui_fft_bins = int(self.gui_freq_max - self.gui_freq_min)
+        self.fft_plot_filter = ExpFilter(np.tile(1e-1, self.n_gui_fft_bins), alpha_decay=0.5, alpha_rise=0.99)
+        self.volume = ExpFilter(app_config.MIN_VOLUME_THRESHOLD, alpha_decay=0.02, alpha_rise=0.02)
+        self.fps_counter = FpsCounter(app_config.PRINT_FPS, app_config.FPS)
+        self.dsp = Dsp(app_config.SAMPLE_RATE)
+        self.previous_samples = []
+        self.fft_gain = ExpFilter(np.tile(1e-1, self.n_gui_fft_bins), alpha_decay=0.01, alpha_rise=0.99)
+
 
     def run(self):
-        if self.use_gui:
+        if app_config.USE_GUI:
             self.setup_gui()
-        self.audio_input = AudioInput(self.mic_rate, self.samples_per_frame)
+        self.audio_input = AudioInput(app_config.SAMPLE_RATE, self.samples_per_frame)
         self.audio_input.run(self.on_microphone_update)
+
 
     def run_audio_input_async(self):
         loop = asyncio.new_event_loop()
@@ -56,9 +54,6 @@ class AudioServer:
 
 
     def setup_gui(self):
-        self.gui_freq_min = self.gui_dsp_config["frequency"]["min"]
-        self.gui_freq_max = self.gui_dsp_config["frequency"]["max"]
-        self.gui_dsp = Dsp(self.gui_dsp_config, self.mic_rate)
         # Create GUI window
         self.app = QtGui.QApplication([])
         self.view = pg.GraphicsView()
@@ -67,70 +62,53 @@ class AudioServer:
         self.view.show()
         self.view.setWindowTitle('Audio processing')
         self.view.resize(1280,800)
-        # Mel filterbank plot
-        self.fft_plot = self.layout.addPlot(title='Filterbank Output', colspan=4)
+        # FFT filterbank plot
+        self.fft_plot = self.layout.addPlot(title='FFT Output', colspan=4)
         self.fft_plot.setRange(yRange=[-0.1, 1.2])
         self.fft_plot.disableAutoRange(axis=pg.ViewBox.YAxis)
-        x_data = np.array(range(1, self.gui_dsp_config["n_fft_bins"] + 1))
-        self.mel_curve = pg.PlotCurveItem()
-        self.mel_curve.setData(x=x_data, y=x_data*0)
-        self.fft_plot.addItem(self.mel_curve)
+        self.fft_curve = pg.PlotCurveItem()
+        x_data = np.array(range(1, app_config.SAMPLE_RATE//2 + 1))
+        self.fft_curve.setData(x=x_data, y=x_data*0)
+        self.fft_plot.addItem(self.fft_curve)
 
 
-    def on_microphone_update(self, audio_samples):
-        # Normalize samples between 0 and 1
-        y = audio_samples / 2.0**15
-        # Construct a rolling window of audio samples
-        self.y_roll[:-1] = self.y_roll[1:]
-        self.y_roll[-1, :] = np.copy(y)
-        rolling_window_data = np.concatenate(self.y_roll, axis=0).astype(np.float32)
-        led_clients = list(filter(lambda c: c.type == ClientTypeId.LED_STRIP_CLIENT, self.client_handler.get_clients()))
-        for client in led_clients:
-            client.update_mel_bank(rolling_window_data)
-            client.send_pixel_data()
+    def on_microphone_update(self, normalized_samples):
+        rolling_window_samples = np.append(self.previous_samples, normalized_samples)
+        self.previous_samples = normalized_samples
 
-        if self.use_gui:
-            self.update_gui_fft_graph(rolling_window_data)
+        # TODO check if filter is necessary: vol = self.volume.update(np.max(np.abs(y_data)))
+        vol = np.max(np.abs(rolling_window_samples))
+        if vol < app_config.MIN_VOLUME_THRESHOLD:
+            fft_data = np.zeros(len(normalized_samples))
+            if __debug__:
+                print("Volume below threshold")
+        else:
+            fft_data = self.dsp.get_fft(rolling_window_samples)
+
+        # send to all connected clients
+        # TODO measure times and check if things need to be done asynchronous
+        for client in self.client_handler.get_led_strip_clients():
+            if(client.is_connected):
+                client.process(fft_data)
+                client.send_pixel_data()
+
+        if app_config.USE_GUI:
+            # map to gui freq range
+            spacing = app_config.SAMPLE_RATE / 2 / len(fft_data)
+            i_min_freq = int(self.gui_freq_min / spacing)
+            i_max_freq = int(self.gui_freq_max / spacing)
+            mapped_fft_data = fft_data[i_min_freq:i_max_freq]
+            # interpolate variable fft_data length to number of gui fft bins
+            interpolated_fft_data = interpolate(mapped_fft_data, self.n_gui_fft_bins)
+            # gain normalization
+            self.fft_gain.update(np.max(gaussian_filter1d(interpolated_fft_data, sigma=1.0)))
+            interpolated_fft_data /= self.fft_gain.value
+            x = np.linspace(self.gui_freq_min, self.gui_freq_max, len(interpolated_fft_data))
+            #self.fft_curve.setData(x=x, y=self.fft_plot_filter.update(interpolated_fft_data))
+            self.fft_curve.setData(x=x, y=interpolated_fft_data)
             self.app.processEvents()
 
-        if self.print_fps:
-            fps = self.frames_per_second()
-            if time.time() - 0.5 > self.prev_fps_update:
-                self.prev_fps_update = time.time()
-                if __debug__:
-                    print('FPS {:.0f} / {:.0f}'.format(fps, self.desired_fps))
-
-
-    def update_gui_fft_graph(self, rolling_window_data):
-        mel = self.gui_dsp.get_mel_bank(rolling_window_data)
-        # Plot filterbank output
-        x = np.linspace(self.gui_freq_min, self.gui_freq_max, len(mel))
-        self.mel_curve.setData(x=x, y=self.fft_plot_filter.update(mel))
-
-
-    def frames_per_second(self):
-        """Return the estimated frames per second
-
-        Returns the current estimate for frames-per-second (FPS).
-        FPS is estimated by measured the amount of time that has elapsed since
-        this function was previously called. The FPS estimate is low-pass filtered
-        to reduce noise.
-
-        This function is intended to be called one time for every iteration of
-        the program's main loop.
-
-        Returns
-        -------
-        fps : float
-            Estimated frames-per-second. This value is low-pass filtered
-            to reduce noise.
-        """
-        time_now = time.time() * 1000.0
-        dt = time_now - self._time_prev
-        self._time_prev = time_now
-        if dt == 0.0:
-            return self._fps.value
-        return self._fps.update(1000.0 / dt)
+        self.fps_counter.update()
 
 
     def stop(self):
@@ -142,14 +120,7 @@ if __name__ == '__main__':
         client_handler = ClientUDPListener()
         client_handler_thread = Thread(target=client_handler.run, name="UDP-Listener-Thread")
         client_handler_thread.start()
-        audio_server = AudioServer(
-            client_handler=client_handler,
-            print_fps=False,
-            use_gui=True,
-            gui_dsp_config=app_config.DEFAULT_DSP_CONFIG,
-            desired_fps=app_config.FPS,
-            mic_rate=app_config.MIC_RATE,
-            min_volume_threshold=app_config.MIN_VOLUME_THRESHOLD)
+        audio_server = AudioServer(client_handler)
     except KeyboardInterrupt:
         print('Interrupted by keyboard')
         audio_server.stop()
