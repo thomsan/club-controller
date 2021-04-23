@@ -2,17 +2,18 @@
 from enum import IntEnum
 
 class ServerMessageId(IntEnum):
-    CONNECT = 1
-    DISCONNECT = 2
-    KEEPALIVE = 3
-    ALREADY_CONNECTED = 4
+    CONNECT = 0
+    DISCONNECT = 1
+    KEEPALIVE = 2
+    ALREADY_CONNECTED = 3
     LED_STRIP_UPDATE = 50
 
 class ClientMessageId(IntEnum):
-    CONNECT = 1
-    KEEPALIVE = 3
+    CONNECT = 0
+    KEEPALIVE = 1
 
-class WebsocketMessageId(IntEnum):
+class WebsocketActionId(IntEnum):
+    HELLO = 0
     CLIENT_LIST_REQUEST = 1
     CLIENT_LIST = 2
     CLIENT_CONNECTED = 3

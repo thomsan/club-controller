@@ -8,7 +8,7 @@ import threading
 
 import websockets
 from python import config as app_config
-from python.protocol.message_ids import WebsocketMessageId
+from python.protocol.message_ids import WebsocketActionId
 
 
 class WebsocketServer:
@@ -16,19 +16,20 @@ class WebsocketServer:
         self.client_handler = client_handler
         self.websocket_clients = set()
 
-
     async def on_message_received(self, websocket, message):
+        if __debug__:
+            print("Received websocket message: " + str(message))
         data = json.loads(message)
-        message_id = WebsocketMessageId(data["type"])
-        if  message_id == WebsocketMessageId.CLIENT_LIST_REQUEST:
-            await self.websocket.send(self.get_client_list_message())
-        elif message_id == WebsocketMessageId.CLIENT_VALUE_UPDATED:
+        message_id = WebsocketActionId(data["action"])
+        if  message_id == WebsocketActionId.CLIENT_LIST_REQUEST:
+            await websocket.send(self.get_client_list_message())
+        elif message_id == WebsocketActionId.CLIENT_VALUE_UPDATED:
             # TODO only send updated data
             if __debug__:
-                print("Received update from client:  {}", data)
-            self.client_handler.update_config(data["config"])
-            await self.send_to_all_but_this(websocket, self.get_client_list_message())
-        elif message_id == WebsocketMessageId.ALL_LED_STRIPS_UPDATED:
+                print("Received update from client: ", data)
+            self.client_handler.update_client(data["data"]["client"])
+            await self.send_to_all(self.get_client_list_message())
+        elif message_id == WebsocketActionId.ALL_LED_STRIPS_UPDATED:
             self.client_handler.update_all(data["data"])
             await self.send_to_all(self.get_client_list_message())
         else:
@@ -37,7 +38,7 @@ class WebsocketServer:
 
 
     def get_client_list_message(self):
-        return json.dumps({"type": int(WebsocketMessageId.CLIENT_LIST), "client_configs": self.client_handler.get_client_configs()})
+        return json.dumps({"action": int(WebsocketActionId.CLIENT_LIST), "clients": list(map(lambda c: c.toJson(), self.client_handler.get_clients()))})
 
 
     async def send_to_all_but_this(self, websocket, message):
@@ -64,6 +65,7 @@ class WebsocketServer:
         if __debug__:
             print("websocket connected on path: " + str(path))
             print("All connected websockets: " + str(self.websocket_clients))
+        await websocket.send(json.dumps({"action": int(WebsocketActionId.HELLO)}))
         await websocket.send(self.get_client_list_message())
 
         try:
@@ -87,14 +89,14 @@ class WebsocketServer:
 
 
     def on_client_connected(self, client):
-        message = json.dumps({"type": int(WebsocketMessageId.CLIENT_CONNECTED), "config": client.config})
+        message = json.dumps({"action": int(WebsocketActionId.CLIENT_CONNECTED), "client": client.toJson()})
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         asyncio.get_event_loop().run_until_complete(self.send_to_all(message))
 
 
     def on_client_disonnected(self, client):
-        message = json.dumps({"type": int(WebsocketMessageId.CLIENT_DISCONNECTED), "config": client.config})
+        message = json.dumps({"action": int(WebsocketActionId.CLIENT_DISCONNECTED), "client": client.toJson()})
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         asyncio.get_event_loop().run_until_complete(self.send_to_all(message))

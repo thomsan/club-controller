@@ -1,7 +1,5 @@
 import asyncio
-import copy
 import sys
-import time
 from threading import Thread
 
 import numpy as np
@@ -9,7 +7,6 @@ import pyqtgraph as pg
 import python.config as app_config
 from pyqtgraph.Qt import QtCore, QtGui
 from python.audio_udp_server.dsp import interpolate
-from python.clients.client import ClientTypeId
 from python.clients.client_udp_listener import ClientUDPListener
 from scipy.ndimage.filters import gaussian_filter1d
 

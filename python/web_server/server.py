@@ -52,6 +52,8 @@ if __name__ == '__main__':
         #audio_server.run()
         client_handler_thread.start()
         #app.run()
+        if __debug__:
+            print("DEBUG MODE")
         is_running = True
         while is_running:
             sleep(1000)

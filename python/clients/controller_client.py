@@ -1,4 +1,4 @@
-from .client import Client, ClientConfig, ClientTypeId
+from .client import Client, ClientTypeId
 
 
 class ControllerClient(Client):

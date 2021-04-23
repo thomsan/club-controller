@@ -8,9 +8,9 @@ import python.config as app_config
 from eventhandler import EventHandler
 from python.protocol.message_ids import ClientMessageId, ServerMessageId
 
-from .client import ON_TIMEOUT_EVENT_MESSAGE, ClientTypeId
-from .controller_client import ControllerClient
-from .led_strip_client import LedStripClient
+from .client import ON_TIMEOUT_EVENT_MESSAGE
+from .client_provider import clientProvider
+from .client_type_id import ClientTypeId
 
 ON_CLIENT_CONNECTED_EVENT_MESSAGE = "onClientConnected"
 ON_CLIENT_DISCONNECTED_EVENT_MESSAGE = "onClientDisconnected"
@@ -31,11 +31,21 @@ class ClientUDPListener:
 
         with open(app_config.SETTINGS_FILE_PATH) as json_file:
             data = json.load(json_file)
-            for client_config in data['client_configs']:
-                client = self.create_client(client_config)
-                if client != None:
-                    client.is_connected = False
+            try:
+                for c_json in data['clients']:
+                    known_client = clientProvider.get(c_json["type_id"], c_json)
+                    if known_client != None:
+                        self.clients.append(known_client)
+                print("\nSettings file was loaded successfully\n")
+            except:
+                print("\nSettings file is corrupt\n")
 
+
+    def get_new_client_uid(self):
+        uid = 0
+        while any(c.uid == uid for c in self.clients):
+            uid += 1
+        return uid
 
     def subscribe_on_client_connected(self, callback):
         self.event_handler.link(callback, ON_CLIENT_CONNECTED_EVENT_MESSAGE)
@@ -45,36 +55,18 @@ class ClientUDPListener:
         self.event_handler.link(callback, ON_CLIENT_DISCONNECTED_EVENT_MESSAGE)
 
 
-    def get_client_configs(self):
-        clients = self.get_clients()
-        return list(map(lambda c: c.config, clients))
-
-
     def get_clients(self):
         return self.clients
 
 
     def get_led_strip_clients(self):
-        return list(filter(lambda c: c.type == ClientTypeId.LED_STRIP_CLIENT, self.clients))
+        return list(filter(lambda c: c.type_id == ClientTypeId.LED_STRIP_CLIENT, self.clients))
 
 
-    def get_client_by_ip(self, ip):
-        self.clients_lock.acquire()
+    def get_client_by_value(self, key, value):
         for client in self.clients:
-            if client.config["ip"] == ip:
-                self.clients_lock.release()
+            if client.__dict__[key] == value:
                 return client
-        self.clients_lock.release()
-        return None
-
-
-    def get_client_by_mac(self, mac):
-        self.clients_lock.acquire()
-        for client in self.clients:
-            if client.config["mac"] == mac:
-                self.clients_lock.release()
-                return client
-        self.clients_lock.release()
         return None
 
 
@@ -85,6 +77,7 @@ class ClientUDPListener:
         self.clients = {}
         self.clients_lock.release()
         self.is_running = False
+        self.save_settings_file()
 
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
@@ -113,14 +106,13 @@ class ClientUDPListener:
                 print("Received messageId: " + str(message_id) + " with message: " + str(message))
             client_message_id = ClientMessageId(message_id)
             if(client_message_id == ClientMessageId.CONNECT):
-                config = json.loads(message)
-                if __debug__:
-                    print("Received connect message with config: " + str(config))
-                self.handle_client_connection(config)
+                self.handle_client_connection(message)
             elif(client_message_id == ClientMessageId.KEEPALIVE):
                 if __debug__ and app_config.PRINT_UDP_STREAM_MESSAGES:
                     print("Received KEEPALIVE from : " + str(address))
-                client = self.get_client_by_ip(address[0])
+                self.clients_lock.acquire()
+                client = self.get_client_by_value("ip", address[0])
+                self.clients_lock.release()
                 if client != None:
                     client.keep_alive()
                 else:
@@ -135,82 +127,81 @@ class ClientUDPListener:
 
     def disconnect(self, client):
         if __debug__:
-            print("Client disconnected: " + str(client.config["ip"]))
+            print("Client disconnected: " + str(client.ip))
         client.send_int_as_byte(ServerMessageId.DISCONNECT)
         self.event_handler.fire(ON_CLIENT_DISCONNECTED_EVENT_MESSAGE, client)
         self.clients_lock.acquire()
-        del self.clients[self.get_client_by_mac(client.config["mac"])]
+        self.get_client_by_value("uid", client.uid).is_connected = False
         self.clients_lock.release()
         if __debug__:
-            print("Client config list: " + str(list(map(lambda c: c["name"], self.get_client_configs()))))
+            self.print_client_list()
 
 
     def on_client_timeout(self, client):
         if __debug__:
-            print("Client timeout: " + str(client.config["ip"]))
+            print("Client timeout: " + str(client.ip))
         self.disconnect(client)
 
 
-    def handle_client_connection(self, config):
+    def handle_client_connection(self, message):
+        message_json = json.loads(message)
         if __debug__:
-            print(config)
-
+            print("\nhandle_client_connection message_json: " + str(message_json))
         # check if client is already known
-        client = self.get_client_by_mac(config["mac"])
-        if(client == None):
+        self.clients_lock.acquire()
+        known_client = self.get_client_by_value("mac", message_json["mac"])
+        self.clients_lock.release()
+        if __debug__:
+            try:
+                print("known_client: " + str(known_client))
+            except:
+                print("known_client is None")
+        client_already_known = known_client != None
+        if client_already_known:
             if __debug__:
-                print("New client connected with ip: " + str(config["ip"]))
-            client = self.create_client(config)
-            if client == None:
+                    print("Client is already known with mac: " + str(known_client.mac))
+            if known_client.is_connected:
+                known_client.send_int_as_byte(ServerMessageId.ALREADY_CONNECTED)
                 return
-            client.is_connected = True
-            client.send_int_as_byte(ServerMessageId.CONNECT)
-            self.save_settings_file()
-        else:
-            if client.is_connected:
-                client.send_int_as_byte(ServerMessageId.ALREADY_CONNECTED)
             else:
-                if __debug__:
-                    print("Client re-connected: " + str(client.config["name"]))
-                client.is_connected = True
-                client.send_int_as_byte(ServerMessageId.CONNECT)
+                self.clients_lock.acquire()
+                known_client.is_connected = True
+                self.clients_lock.release()
+                known_client.send_int_as_byte(ServerMessageId.CONNECT)
+                self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, known_client)
+                known_client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
+
                 self.save_settings_file()
-
-
+                if __debug__:
+                    print("Client re-connected: " + str(known_client.name))
+        else:
+            if not "name" in message_json:
+                message_json["name"] = "NAME NOT SET"
+            # get and assign a new uid
+            message_json["uid"] = self.get_new_client_uid()
+            new_client = clientProvider.get(ClientTypeId(message_json["type_id"]), **message_json)
+            assert new_client != None
+            self.clients_lock.acquire()
+            new_client.is_connected = True
+            self.clients.append(new_client)
+            self.clients_lock.release()
+            new_client.send_int_as_byte(ServerMessageId.CONNECT)
+            self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, new_client)
+            new_client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
+            self.save_settings_file()
+            if __debug__:
+                print("New client connected with ip: " + str(new_client.ip))
 
         if __debug__:
-            print("Client list: " + str(list(map(lambda c: c["name"], self.get_client_configs()))))
-        self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, client)
-        client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
+            self.print_client_list()
 
 
-    def create_client(self, config):
-        type_id = config["typeId"]
-        try:
-            client_type_id = ClientTypeId(type_id)
-        except ValueError:
-            print("Unkown client typeId: " + str(type_id))
-            return None
-
-        if(client_type_id == ClientTypeId.LED_STRIP_CLIENT):
-            config["name"] = "DEFAULT NAME LED STRIP"
-            config["led_strip_params"] = copy.deepcopy(app_config.DEFAULT_LED_STRIP_PARAMS)
-            client = LedStripClient(config)
-        elif(client_type_id == ClientTypeId.CONTROLLER_CLIENT):
-            config["name"] = "DEFAULT NAME Controller"
-            client = ControllerClient(config)
-        else:
-            print("client_type_id " + client_type_id + " is not implemented")
-            return None
+    def update_client(self, client_json):
         self.clients_lock.acquire()
-        self.clients.append(client)
-        self.clients_lock.release()
-        return client
-
-    def update_config(self, config):
-        client = self.get_client_by_mac(config["mac"])
+        client = self.get_client_by_value("uid", client_json["uid"])
         if client:
-            client.update_config(config)
+            client.update_from_json(client_json)
+        self.clients_lock.release()
 
 
     def update_all(self, data):
@@ -218,14 +209,19 @@ class ClientUDPListener:
         for key, value in data.items():
             if key == "effect_id":
                 for client in self.get_led_strip_clients():
-                    client.config["led_strip_params"]["effect_id"] = int(value)
+                    client.effect_id = int(value)
             if key == "color":
                 for client in self.get_led_strip_clients():
-                    client.config["led_strip_params"]["color"] = value
+                    client.color = value
         self.clients_lock.release()
+
 
     def save_settings_file(self):
         data = {}
-        data["client_configs"] = list(map(lambda c : c.config, self.clients))
+        data["clients"] = list(map(lambda c : c.toJson(), self.clients))
         with open(app_config.SETTINGS_FILE_PATH, "w") as f:
             json.dump(data, f)
+
+
+    def print_client_list(self):
+        print("\nClient list: " + str(list(map(lambda c: c.toJson(), self.get_clients()))) + "\n")

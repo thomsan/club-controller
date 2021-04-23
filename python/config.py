@@ -10,35 +10,16 @@ USE_GUI = True
 
 PRINT_UDP_STREAM_MESSAGES = False
 
-MAX_PIXELS_PER_PACKET = 126
-"""Max number of pixels per UDP packet sent to a client """
-
 SAMPLE_RATE = 44100
 """Sampling frequency of the audio source in Hz"""
 
 PRINT_FPS = False
 """If True, print current fps every frame"""
 
-FPS = 30
+FPS = 60
 """Desired refresh rate of the visualization (frames per second)"""
 
 SETTINGS_FILE_PATH = "./settings.json"
 
 MIN_VOLUME_THRESHOLD = 1e-7
 """No music visualization displayed if input audio volume below threshold. Range 0 to 1."""
-
-DEFAULT_LED_STRIP_PARAMS = {
-    "num_pixels": 80,
-    "effect_id": 1,
-    "sigma": 1,
-    "color": {
-        "r": 255,
-        "g": 0,
-        "b": 0
-    },
-    "frequency": {
-        "min": 0,
-        "max": 100
-    },
-    "fps": 30
-}
