@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'start_page.dart';
 
 void main() {
-  runApp(
-    Center(
-      child: Text(
-        'Hello, world!',
-        textDirection: TextDirection.ltr,
-      ),
-    ),
-  );
+  final title = 'Club Controller';
+  runApp(MaterialApp(
+    title: title,
+    home: new StartPage(),
+  ));
 }
