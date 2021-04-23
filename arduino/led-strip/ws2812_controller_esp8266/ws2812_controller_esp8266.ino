@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
 // Set to the number of LEDs in your LED strip
 #define NUM_LEDS 80
@@ -29,18 +29,18 @@ IPAddress broadcast(192, 168, 178, 255);
 IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
 
-DynamicJsonDocument configJson(1024);
+DynamicJsonDocument clientParamsJson(1024);
 typedef enum {
-    CONNECT = 1,
-    DISCONNECT = 2,
-    KEEPALIVE = 3,
-    ALREADY_CONNECTED = 4,
+    CONNECT = 0,
+    DISCONNECT = 1,
+    KEEPALIVE = 2,
+    ALREADY_CONNECTED = 3,
     LED_STRIP_UPDATE = 50
 } ServerMessageId;
 
 typedef enum {
-    CLIENT_MESSAGE_ID_CONNECT = 1,
-    CLIENT_MESSAGE_ID_KEEPALIVE = 3
+    CLIENT_MESSAGE_ID_CONNECT = 0,
+    CLIENT_MESSAGE_ID_KEEPALIVE = 1
 } ClientMessageId;
 
 //NeoPixelBus settings
@@ -95,11 +95,8 @@ void setup() {
     flashPattern(red, 5, 50);
     clearLedStrip();
 
-    #if DHCP
-    WiFi.config(ip, gateway, subnet);
-    #else
+    //WiFi.config(ip, gateway, subnet);
     WiFi.begin(ssid, password);
-    #endif
     Serial.println("");
     // Connect to wifi and print the IP address over serial
     while (WiFi.status() != WL_CONNECTED) {
@@ -109,7 +106,7 @@ void setup() {
     }
     Serial.println("Connected to WIFI");
     printWifiStatus();
-    setupConfigJson();
+    setupClientParamsJson();
     messageUdpPort.begin(localPort);
     broadcastUdpPort.begin(remoteBroadcastPort);
     flashPattern(blue, 5, 50);
@@ -120,9 +117,9 @@ void loop() {
     nowMS = millis();
     if(!isConnectedToServer){
         if(nowMS - lastClientBroadcastMS >= CLIENT_BROADCAST_DELAY_MS){
-          int len = measureJson(configJson);
-          serializeJson(configJson, broadcastMessageBuffer);
-          Serial.printf("Sending configJson with length: %i\n", len);
+          int len = measureJson(clientParamsJson);
+          serializeJson(clientParamsJson, broadcastMessageBuffer);
+          Serial.printf("Sending clientParamsJson with length: %i\n", len);
           broadcastMessage(CLIENT_MESSAGE_ID_CONNECT, broadcastMessageBuffer, len);
           flashPattern(yellow, 2, 20);
           lastClientBroadcastMS = nowMS;
@@ -171,12 +168,12 @@ void loop() {
     #endif
 }
 
-void setupConfigJson(){
+void setupClientParamsJson(){
     DynamicJsonDocument ledStripParamsJson(1024);
-    configJson["typeId"] = clientType;
-    configJson["mac"] = WiFi.macAddress();
-    configJson["ip"] = ipAddress2String(WiFi.localIP());
-    configJson["port"] = localPort;
+    clientParamsJson["type_id"] = clientType;
+    clientParamsJson["mac"] = WiFi.macAddress();
+    clientParamsJson["ip"] = ipAddress2String(WiFi.localIP());
+    clientParamsJson["port"] = localPort;
 }
 
 
