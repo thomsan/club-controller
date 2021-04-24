@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'dart:html' as html;
 
 ///
 /// Application-level global variable to access the WebSockets
