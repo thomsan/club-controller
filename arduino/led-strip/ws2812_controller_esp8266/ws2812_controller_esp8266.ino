@@ -12,10 +12,8 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
-#define DEBUG 1
+#define DEBUG 0
 
-// Set to the number of LEDs in your LED strip
-#define NUM_LEDS 80
 // Maximum number of packets to hold in the buffer. Don't changethis.
 #define BUFFER_LEN 1024
 // Toggles FPS output (1 = print FPS over serial, 0 = disable output)
@@ -29,6 +27,7 @@ IPAddress broadcast(192, 168, 178, 255);
 IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
 
+DynamicJsonDocument receivedServerConfigJson(1024);
 DynamicJsonDocument clientParamsJson(1024);
 typedef enum {
     CONNECT = 0,
@@ -47,9 +46,7 @@ typedef enum {
 const uint8_t PixelPin = 3;  // make sure to set this to the correct pin, ignored for Esp8266(set to 3 by default for DMA)
 
 // Wifi and socket settings
-const char* ssid     = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-const uint8_t clientType = 1;  // 1: LED_STRIP_CLIENT, 2: CONTROLLER_CLIENT
+const uint8_t clientType = 0;  // 0: LED_STRIP_CLIENT, 1: CONTROLLER_CLIENT
 unsigned int localPort = 7777;
 unsigned int remoteBroadcastPort = 8888;
 char packetBuffer[BUFFER_LEN];
@@ -73,10 +70,10 @@ uint8_t N = 0;
     uint32_t fpsTimerMS = 0;
 #endif
 
-// LED strip
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> ledstrip(NUM_LEDS, PixelPin);
-float sigma = 0.9f;
-String color = "#ff00";
+// Initialize the LED strip with a default pixel count of 50
+// This will be overwritten, as soon as the config is received from the server
+uint16_t numPixels = 50;
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* strip = NULL;
 
 WiFiUDP messageUdpPort;
 WiFiUDP broadcastUdpPort;
@@ -88,12 +85,26 @@ RgbColor green(0,10,0);
 RgbColor blue(0,0,10);
 RgbColor yellow(10,10,0);
 
+void initStrip(){
+  if (strip != NULL) { 
+    delete strip;
+  }
+  Serial.println("deleted strip");
+  strip = new NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>(numPixels, PixelPin);
+  if (strip == NULL) {
+      Serial.println("Couldn't create strip. OUT OF MEMORY");
+      return;
+  }
+  Serial.println("created strip");
+  strip->Begin();
+  Serial.println("started strip");
+}
+
 void setup() {
     Serial.begin(115200);
 
-    ledstrip.Begin();
+    initStrip();
     flashPattern(red, 5, 50);
-    clearLedStrip();
 
     //WiFi.config(ip, gateway, subnet);
     WiFi.begin(ssid, password);
@@ -110,7 +121,6 @@ void setup() {
     messageUdpPort.begin(localPort);
     broadcastUdpPort.begin(remoteBroadcastPort);
     flashPattern(blue, 5, 50);
-    clearLedStrip();
 }
 
 void loop() {
@@ -176,10 +186,8 @@ void setupClientParamsJson(){
     clientParamsJson["port"] = localPort;
 }
 
-
 void broadcastMessage(uint8_t messageId, char* messageBuffer, int len) {
   Serial.printf("broadcastUDP messageId: %i\n", messageId);
-
   broadcastUdpPort.beginPacketMulticast(broadcast, remoteBroadcastPort, WiFi.localIP());
   broadcastUdpPort.write(messageId);
   broadcastUdpPort.write(messageBuffer, len);
@@ -201,7 +209,7 @@ void handleMessage(int messageId, int len, char *buffer){
     #endif
     switch(messageId){
         case CONNECT:
-            onConnectionMessage();
+            onConnectionMessage(len, buffer);
             break;
         case DISCONNECT:
             onDisconnectionMessage();
@@ -213,7 +221,7 @@ void handleMessage(int messageId, int len, char *buffer){
             if(isConnectedToServer){
               Serial.printf("Received ALREADY_CONNECTED message, which is ignored.\n");
             } else {
-              onConnectionMessage();
+              onConnectionMessage(len, buffer);
             }
             break;
         case LED_STRIP_UPDATE:
@@ -224,19 +232,29 @@ void handleMessage(int messageId, int len, char *buffer){
     }
 }
 
-void onConnectionMessage(){
+void onConnectionMessage(int len, char *buffer){
+    Serial.println("onConnectionMessage");
+    DeserializationError error = deserializeJson(receivedServerConfigJson, buffer);
+    Serial.println("deserialized");
+    if (error){
+      Serial.println("jsonReceiveBuffer.parseObject(buffer) failed");
+      Serial.println(buffer);
+      flashPattern(red, 10, 50);
+      return;
+    }
+    // setup the ledstrip with the received config
+    numPixels = receivedServerConfigJson["num_pixels"];
+    initStrip();
     flashPattern(green, 5, 50);
-    clearLedStrip();
-    isConnectedToServer = true;
     serverIp = messageUdpPort.remoteIP();
     serverPort = messageUdpPort.remotePort();
     Serial.printf("Registered at server: %s, port %d\n", serverIp.toString().c_str(), serverPort);
+    isConnectedToServer = true;
 }
 
 void onDisconnectionMessage(){
     Serial.printf("Unregistered from server: %s, port %d\n", serverIp.toString().c_str(), serverPort);
     flashPattern(blue, 5, 50);
-    clearLedStrip();
     isConnectedToServer = false;
 }
 
@@ -249,12 +267,12 @@ void onLedStripUpdateMessage(int len, char *buffer){
         buffer[len]=0;
         N = buffer[i];
         RgbColor pixel((uint8_t)buffer[i+1], (uint8_t)buffer[i+2], (uint8_t)buffer[i+3]);
-        ledstrip.SetPixelColor(N, pixel);
+        strip->SetPixelColor(N, pixel);
     }
     #if DEBUG
     Serial.printf("Received LED Strip update\n");
     #endif
-    ledstrip.Show();
+    strip->Show();
 }
 
 void printWifiStatus() {
@@ -291,11 +309,11 @@ void printWifiStatus() {
 
 void clearLedStrip(){
   RgbColor off(0,0,0);
-  for(int i=0; i<NUM_LEDS; i++) {
-    ledstrip.SetPixelColor(i, off);
+  for(int i=0; i<numPixels; i++) {
+    strip->SetPixelColor(i, off);
   }
   Serial.printf("LED Strip cleared\n");
-  ledstrip.Show();
+  strip->Show();
 }
 
 void flashPattern(RgbColor onColor, int numFlashes, uint32_t delayMS){
@@ -307,10 +325,10 @@ void flashPattern(RgbColor onColor, int numFlashes, uint32_t delayMS){
   nowMS = millis();
   uint32_t lastChangeMS = nowMS;
   for (int i=0; i<numFlashes*2; i++){
-    for(int i=0; i<NUM_LEDS; i++) {
-      ledstrip.SetPixelColor(i, isOn ? offColor : onColor);
+    for(int i=0; i<numPixels; i++) {
+      strip->SetPixelColor(i, isOn ? offColor : onColor);
     }
-    ledstrip.Show();
+    strip->Show();
     while(nowMS - lastChangeMS < delayMS){
       nowMS = millis();
     }

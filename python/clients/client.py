@@ -1,3 +1,4 @@
+import json
 import socket
 import threading
 from abc import ABC, abstractmethod
@@ -60,6 +61,10 @@ class Client(ABC):
         if __debug__ and False:
             print("Sending message with id " + str(message_id) + " and length: " + str(len(data_bytes)) + " to " + str((self.ip, self.port)))
         self.send_raw(message_id_bytes + data_bytes)
+
+
+    def send_connection_message(self):
+        self.send_message(ServerMessageId.CONNECT, json.dumps(self.toJson()).encode('utf-8'))
 
 
     def on_client_timeout(self):

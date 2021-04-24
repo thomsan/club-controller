@@ -167,7 +167,7 @@ class ClientUDPListener:
                 self.clients_lock.acquire()
                 known_client.is_connected = True
                 self.clients_lock.release()
-                known_client.send_int_as_byte(ServerMessageId.CONNECT)
+                known_client.send_connection_message()
                 self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, known_client)
                 known_client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
 
@@ -185,7 +185,7 @@ class ClientUDPListener:
             new_client.is_connected = True
             self.clients.append(new_client)
             self.clients_lock.release()
-            new_client.send_int_as_byte(ServerMessageId.CONNECT)
+            new_client.send_connection_message()
             self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, new_client)
             new_client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
             self.save_settings_file()
