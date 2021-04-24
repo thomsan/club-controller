@@ -44,15 +44,15 @@ class WebSocketNotifications {
   /// ----------------------------------------------------------
 
   Future<void> initCommunication() async {
-    ///
-    /// Just in case, close any previous communication
-    ///
-    reset();
-
-    ///
-    /// Open a new WebSocket communication
-    ///
     try {
+      ///
+      /// Just in case, close any previous communication
+      ///
+      reset();
+
+      ///
+      /// Open a new WebSocket communication
+      ///
       _channel = new WebSocketChannel.connect(Uri.parse(serverAddress!));
 
       ///
