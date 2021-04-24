@@ -31,7 +31,8 @@ class ClientUDPListener:
 
         with open(app_config.SETTINGS_FILE_PATH) as json_file:
             data = json.load(json_file)
-            print("Loaded settings file: " + str(data))
+            print("\nLoaded settings file from: " + str(app_config.SETTINGS_FILE_PATH))
+            print(data)
             try:
                 for client_json in data['clients']:
                     known_client = clientProvider.get(client_json["type_id"], **client_json)
@@ -61,7 +62,7 @@ class ClientUDPListener:
 
 
     def get_led_strip_clients(self):
-        return list(filter(lambda c: c.type_id == ClientTypeId.LED_STRIP_CLIENT, self.clients))
+        return list(filter(lambda c: c.type_id == int(ClientTypeId.LED_STRIP_CLIENT), self.clients))
 
 
     def get_client_by_value(self, key, value):
@@ -204,6 +205,7 @@ class ClientUDPListener:
 
     def update_all(self, data):
         self.clients_lock.acquire()
+        # TODO update all available keys
         for key, value in data.items():
             if key == "effect_id":
                 for client in self.get_led_strip_clients():

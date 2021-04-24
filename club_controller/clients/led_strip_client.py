@@ -27,7 +27,7 @@ class LedStripClient(Client):
     def __init__(self, uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, sigma):
         self.color = color
         self.color_templates = color_templates
-        self.effect_id = EffectId(effect_id)
+        self.effect_id = effect_id
         self.fps = fps
         self.frequency = frequency
         self.num_pixels = num_pixels
@@ -49,7 +49,7 @@ class LedStripClient(Client):
                             alpha_decay=0.1, alpha_rise=0.5)
         self.common_mode = ExpFilter(np.tile(0.01, self.num_pixels // 2),
                             alpha_decay=0.99, alpha_rise=0.01)
-        super().__init__(uid, ip, port, mac, ClientTypeId.LED_STRIP_CLIENT, name)
+        super().__init__(uid, ip, port, mac, int(ClientTypeId.LED_STRIP_CLIENT), name)
 
 
     def toJson(self):
@@ -59,7 +59,7 @@ class LedStripClient(Client):
             "ip": self.ip,
             "port": self.port,
             "name": self.name,
-            "type_id": int(self.type_id),
+            "type_id": self.type_id,
             "is_connected": self.is_connected,
             "color": self.color,
             "color_templates": self.color_templates,
@@ -84,7 +84,6 @@ class LedStripClient(Client):
         """
 
         self.lock.acquire()
-        effect_id = EffectId(self.effect_id)
 
         # get chosen frequency range
         # fft_data spans from 0 to SAMPLING_RATE/2 Hz with spacing SAMPLING_RATE/len(fft_dat)
@@ -92,7 +91,7 @@ class LedStripClient(Client):
         i_min_freq = int(self.frequency["min"] / spacing)
         i_max_freq = int(self.frequency["max"] / spacing)
         mapped_fft_data = fft_data[i_min_freq:i_max_freq]
-
+        effect_id = EffectId(self.effect_id)
         if(effect_id == EffectId.COLORED_ENERGY):
             pixel_values = self.get_pixel_values_colored_energy(mapped_fft_data)
         elif(effect_id == EffectId.ENERGY):
@@ -103,7 +102,7 @@ class LedStripClient(Client):
             pixel_values = self.get_pixel_values_spectrum(mapped_fft_data)
         else:
             if __debug__:
-                print("Unkown effectId: " + str(effect_id))
+                print("Unkown effectId: " + str(self.effect_id))
             pixel_values = np.zeros(self.num_pixels)
         self.pixels = pixel_values
         self.lock.release()
