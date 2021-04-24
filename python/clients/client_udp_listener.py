@@ -31,9 +31,10 @@ class ClientUDPListener:
 
         with open(app_config.SETTINGS_FILE_PATH) as json_file:
             data = json.load(json_file)
+            print("Loaded settings file: " + str(data))
             try:
-                for c_json in data['clients']:
-                    known_client = clientProvider.get(c_json["type_id"], c_json)
+                for client_json in data['clients']:
+                    known_client = clientProvider.get(client_json["type_id"], **client_json)
                     if known_client != None:
                         self.clients.append(known_client)
                 print("\nSettings file was loaded successfully\n")
@@ -73,9 +74,6 @@ class ClientUDPListener:
     def stop(self):
         for client in self.get_clients():
             client.stop()
-        self.clients_lock.acquire()
-        self.clients = {}
-        self.clients_lock.release()
         self.is_running = False
         self.save_settings_file()
 
@@ -218,9 +216,12 @@ class ClientUDPListener:
 
     def save_settings_file(self):
         data = {}
+        self.clients_lock.acquire()
         data["clients"] = list(map(lambda c : c.toJson(), self.clients))
+        self.clients_lock.release()
+        print("\nSaving settings file: " + str(data) + "\n")
         with open(app_config.SETTINGS_FILE_PATH, "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=4)
 
 
     def print_client_list(self):

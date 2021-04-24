@@ -27,7 +27,7 @@ class LedStripClient(Client):
     def __init__(self, uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, sigma):
         self.color = color
         self.color_templates = color_templates
-        self.effect_id = effect_id
+        self.effect_id = EffectId(effect_id)
         self.fps = fps
         self.frequency = frequency
         self.num_pixels = num_pixels
@@ -56,8 +56,10 @@ class LedStripClient(Client):
         return {
             "uid": self.uid,
             "mac": self.mac,
+            "ip": self.ip,
+            "port": self.port,
             "name": self.name,
-            "type_id": self.type_id,
+            "type_id": int(self.type_id),
             "is_connected": self.is_connected,
             "color": self.color,
             "color_templates": self.color_templates,
