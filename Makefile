@@ -1,12 +1,8 @@
-#run: export FLASK_DEBUG=0
-#run: export FLASK_APP=python/web_server/server.py
 run:
-	python -O python/web_server/server.py
+	python -O python/main.py
 
-#run-debug: export FLASK_ENV=development
-#run-debug: export FLASK_APP=python/web_server/server.py
 run-debug:
-	python python/web_server/server.py
+	python python/main.py
 
 requirements:
 	sudo apt-get install libatlas-base-dev
