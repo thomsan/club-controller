@@ -1,8 +1,8 @@
 run:
-	python -O python/main.py
+	python -O club_controller/main.py
 
 run-debug:
-	python python/main.py
+	python club_controller/main.py
 
 requirements:
 	sudo apt-get install libatlas-base-dev

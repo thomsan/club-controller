@@ -1,5 +1,5 @@
 
-from python.misc.object_factory import ObjectFactory
+from club_controller.misc.object_factory import ObjectFactory
 
 from .client_type_id import ClientTypeId
 from .led_strip_client import LedStripClient

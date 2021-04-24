@@ -7,8 +7,8 @@ import json
 import threading
 
 import websockets
-from python import config as app_config
-from python.protocol.message_ids import WebsocketActionId
+from club_controller import config as app_config
+from club_controller.protocol.message_ids import WebsocketActionId
 
 
 class WebsocketServer:

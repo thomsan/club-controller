@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 
 import eventhandler
-from python.protocol.message_ids import ServerMessageId
+from club_controller.protocol.message_ids import ServerMessageId
 
 ON_TIMEOUT_EVENT_MESSAGE = "onTimeout"
 

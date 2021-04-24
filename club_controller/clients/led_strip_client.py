@@ -2,10 +2,10 @@ from enum import IntEnum
 from threading import Lock
 
 import numpy as np
-import python.config as app_config
-from python.audio_udp_server.dsp import interpolate
-from python.audio_udp_server.filters import ExpFilter
-from python.protocol.message_ids import ServerMessageId
+import club_controller.config as app_config
+from club_controller.audio_udp_server.dsp import interpolate
+from club_controller.audio_udp_server.filters import ExpFilter
+from club_controller.protocol.message_ids import ServerMessageId
 from scipy.ndimage.filters import gaussian_filter1d
 
 from .client import Client

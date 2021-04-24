@@ -4,9 +4,9 @@ import os
 import socket
 from threading import Lock
 
-import python.config as app_config
+import club_controller.config as app_config
 from eventhandler import EventHandler
-from python.protocol.message_ids import ClientMessageId, ServerMessageId
+from club_controller.protocol.message_ids import ClientMessageId, ServerMessageId
 
 from .client import ON_TIMEOUT_EVENT_MESSAGE
 from .client_provider import clientProvider
@@ -219,7 +219,8 @@ class ClientUDPListener:
         self.clients_lock.acquire()
         data["clients"] = list(map(lambda c : c.toJson(), self.clients))
         self.clients_lock.release()
-        print("\nSaving settings file: " + str(data) + "\n")
+        if __debug__:
+            print("\nSaving settings file: " + str(data) + "\n")
         with open(app_config.SETTINGS_FILE_PATH, "w") as f:
             json.dump(data, f, indent=4)
 

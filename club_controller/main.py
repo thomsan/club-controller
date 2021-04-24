@@ -3,9 +3,9 @@ import sys
 from threading import Thread
 from time import sleep
 
-from python.audio_udp_server.audio_server import AudioServer
-from python.clients.client_udp_listener import ClientUDPListener
-from python.websocket_server.websocket_server import WebsocketServer
+from club_controller.audio_udp_server.audio_server import AudioServer
+from club_controller.clients.client_udp_listener import ClientUDPListener
+from club_controller.websocket_server.websocket_server import WebsocketServer
 
 
 def run_audio_server_async():
