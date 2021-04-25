@@ -174,7 +174,7 @@ class ClientUDPListener:
                 message_json["name"] = "NAME NOT SET"
             # get and assign a new uid
             message_json["uid"] = self.get_new_client_uid()
-            new_client = clientProvider.get(ClientTypeId(message_json["type_id"]), **message_json)
+            new_client = client_provider.get(ClientTypeId(message_json["type_id"]), **message_json)
             assert new_client != None
             self.clients_lock.acquire()
             new_client.is_connected = True

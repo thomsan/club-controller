@@ -17,5 +17,5 @@ class ClientProvider(ObjectFactory):
                 kwargs[key] = value
         return self.create(client_type_id, **kwargs)
 
-clientProvider = ClientProvider()
-clientProvider.register_builder(ClientTypeId.LED_STRIP_CLIENT, create_led_strip_client)
+client_provider = ClientProvider()
+client_provider.register_builder(ClientTypeId.LED_STRIP_CLIENT, create_led_strip_client)
