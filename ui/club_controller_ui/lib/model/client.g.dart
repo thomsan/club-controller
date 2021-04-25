@@ -54,3 +54,22 @@ Map<String, dynamic> _$LedStripClientToJson(LedStripClient instance) =>
       'num_pixels': instance.num_pixels,
       'sigma': instance.sigma,
     };
+
+GpioClient _$GpioClientFromJson(Map<String, dynamic> json) {
+  return GpioClient(
+    uid: json['uid'],
+    name: json['name'],
+    type_id: json['type_id'],
+    is_connected: json['is_connected'],
+    gpios: (json['gpios'] as List<dynamic>).map((e) => e as bool).toList(),
+  );
+}
+
+Map<String, dynamic> _$GpioClientToJson(GpioClient instance) =>
+    <String, dynamic>{
+      'uid': instance.uid,
+      'type_id': instance.type_id,
+      'name': instance.name,
+      'is_connected': instance.is_connected,
+      'gpios': instance.gpios,
+    };

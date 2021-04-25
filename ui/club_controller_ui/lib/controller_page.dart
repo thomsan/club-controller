@@ -1,9 +1,48 @@
+import 'dart:io';
+
 import 'client_communication.dart';
 import 'package:flutter/material.dart';
 import 'start_page.dart';
 import 'dart:convert';
 import 'model/client.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+
+Color fromJsonColor(color) {
+  return Color.fromARGB(255, color["r"], color["g"], color["b"]);
+}
+
+Map<String, int> toJsonColor(color) {
+  return {"r": color.red, "g": color.green, "b": color.blue};
+}
+
+Future<dynamic> showColorPicker(
+    BuildContext context, Color color, Function(Color) onCollorChanged) {
+  return showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        titlePadding: const EdgeInsets.all(0.0),
+        contentPadding: const EdgeInsets.all(0.0),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: color,
+            onColorChanged: onCollorChanged,
+            colorPickerWidth: 300.0,
+            pickerAreaHeightPercent: 0.7,
+            enableAlpha: true,
+            displayThumbColor: true,
+            showLabel: true,
+            paletteType: PaletteType.hsv,
+            pickerAreaBorderRadius: const BorderRadius.only(
+              topLeft: const Radius.circular(2.0),
+              topRight: const Radius.circular(2.0),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class ControllerPage extends StatefulWidget {
   final String title = "Club Controller";
@@ -19,12 +58,15 @@ class _ControllerPageState extends State<ControllerPage> {
   /// At first initialization, the client list is empty
   ///
   List<LedStripClient> _led_strip_clients = List.empty(growable: true);
+  List<GpioClient> _gpio_clients = List.empty(growable: true);
+  Map<String, dynamic> _ui_config = {};
 
   @override
   void initState() {
     super.initState();
     clientCommunication.addListener(_onMessageReceived);
     clientCommunication.sendActionId(WebsocketActionId.CLIENT_LIST_REQUEST);
+    clientCommunication.sendActionId(WebsocketActionId.UI_CONFIG_REQUEST);
   }
 
   @override
@@ -33,35 +75,22 @@ class _ControllerPageState extends State<ControllerPage> {
     super.dispose();
   }
 
+  /*List<LedStripClient> getLedStripClients(){
+    return _clients.where((c) => c.type_id == ClientTypeId.LED_STRIP_CLIENT).toList().cast<LedStripClient>();
+  }
+
+  List<GpioClient> getGpioClients(){
+    return _clients.where((c) => c.type_id == ClientTypeId.GPIO_CLIENT).toList().cast<GpioClient>();
+  }*/
+
   /// -------------------------------------------------------------------
   /// This routine handles all messages that are sent by the server.
   /// In this page, the following actions have to be processed
   ///  - connection
   /// -------------------------------------------------------------------
   _onMessageReceived(message) {
-    print("_ControllerPageState message received");
     int action = message["action"];
     switch (WebsocketActionId.values[action]) {
-      case WebsocketActionId.CLIENT_LIST:
-        String clients_json = json.encode(message["clients"]);
-        print("clients_json");
-        print(clients_json);
-        Iterable list = json.decode(clients_json);
-        print("list");
-        print(list);
-        setState(() {
-          _led_strip_clients = list
-              .where((client) =>
-                  // TODO validate client["typeId"]
-                  ClientTypeId.values[client["type_id"]] ==
-                  ClientTypeId.LED_STRIP_CLIENT)
-              .map((_client) => LedStripClient.fromJson(_client))
-              .toList(growable: true);
-          print("Setting state: ");
-          print(_led_strip_clients);
-        });
-        break;
-
       case WebsocketActionId.CLIENT_CONNECTED:
         print("CLIENT_CONNECTED");
         print(message["client"]);
@@ -73,11 +102,17 @@ class _ControllerPageState extends State<ControllerPage> {
             // known client
             client.is_connected = true;
           } else {
-            // new client
-            _led_strip_clients.add(LedStripClient.fromJson(message["client"]));
+            switch (message["client"]["type_id"]) {
+              case ClientTypeId.LED_STRIP_CLIENT:
+                _led_strip_clients
+                    .add(LedStripClient.fromJson(message["client"]));
+                break;
+              case ClientTypeId.GPIO_CLIENT:
+                _gpio_clients.add(GpioClient.fromJson(message["client"]));
+                break;
+              default:
+            }
           }
-          print("Setting state: ");
-          print(_led_strip_clients);
         });
         break;
 
@@ -85,15 +120,49 @@ class _ControllerPageState extends State<ControllerPage> {
         print("CLIENT_DISCONNECTED");
         print(message["client"]);
         setState(() {
-          LedStripClient client = _led_strip_clients.asMap().values.firstWhere(
-              (c) => c.uid == message["client"]["uid"],
-              orElse: null);
+          Client? client = null;
+          switch (message["client"]["type_id"]) {
+            case ClientTypeId.LED_STRIP_CLIENT:
+              client = _led_strip_clients.asMap().values.firstWhere(
+                  (c) => c.uid == message["client"]["uid"],
+                  orElse: null);
+              break;
+            case ClientTypeId.GPIO_CLIENT:
+              client = _gpio_clients.asMap().values.firstWhere(
+                  (c) => c.uid == message["client"]["uid"],
+                  orElse: null);
+              break;
+            default:
+          }
+
           if (client != null) {
             client.is_connected = false;
           }
-          //.removeWhere((c) => c.uid == message["client"]["uid"]);
-          print("Setting state: ");
-          print(_led_strip_clients);
+        });
+        break;
+
+      case WebsocketActionId.CLIENT_LIST:
+        setState(() {
+          _led_strip_clients = (message["clients"] as List)
+              .where((client) =>
+                  // TODO validate client["typeId"]
+                  ClientTypeId.values[client["type_id"]] ==
+                  ClientTypeId.LED_STRIP_CLIENT)
+              .map((client) => LedStripClient.fromJson(client))
+              .toList(growable: true);
+          _gpio_clients = (message["clients"] as List)
+              .where((client) =>
+                  // TODO validate client["typeId"]
+                  ClientTypeId.values[client["type_id"]] ==
+                  ClientTypeId.GPIO_CLIENT)
+              .map((client) => GpioClient.fromJson(client))
+              .toList(growable: true);
+        });
+        break;
+
+      case WebsocketActionId.UI_CONFIG:
+        setState(() {
+          _ui_config = message["ui"];
         });
         break;
 
@@ -114,7 +183,21 @@ class _ControllerPageState extends State<ControllerPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            LedStripList(ledStripClients: _led_strip_clients),
+            Expanded(
+              child: Card(
+                child: Column(
+                  children: [
+                    Text(
+                      "Overall control",
+                      style: Theme.of(context).textTheme.headline4,
+                    ),
+                    OverallControl(ui_config: _ui_config)
+                  ],
+                ),
+              ),
+            ),
+            LedStripControlList(ledStripClients: _led_strip_clients),
+            GpioControlList(gpioClients: _gpio_clients),
             Form(
               child: TextFormField(
                 controller: _debugController,
@@ -143,52 +226,198 @@ class ClientList extends StatefulWidget {
   _ControllerPageState createState() => _ControllerPageState();
 }
 
-class LedStripItem extends StatelessWidget {
-  LedStripItem({
-    required this.client,
-  }) : super(key: ObjectKey(client));
+class ColorTemplates extends StatelessWidget {
+  final List<Color> colors;
+  final Function(Color)? onPressed;
+  final Function(Color)? onLongPressed;
+  ColorTemplates(
+      {Key? key, required this.colors, this.onPressed, this.onLongPressed})
+      : super(key: key);
 
-  final LedStripClient client;
-
-  Color _getColor(BuildContext context) {
-    // The theme depends on the BuildContext because different
-    // parts of the tree can have different themes.
-    // The BuildContext indicates where the build is
-    // taking place and therefore which theme to use.
-
-    return client.is_connected //
-        ? Theme.of(context).primaryColor
-        : Colors.black54;
+  List<Widget> _buildColorTemplateList() {
+    List<ElevatedButton> color_buttons =
+        []; // this will hold Rows according to available lines
+    for (var color in colors) {
+      color_buttons.add(ElevatedButton(
+          child: null,
+          style: ElevatedButton.styleFrom(
+            primary: color, // background
+            onPrimary: Colors.white, // foreground
+          ),
+          onPressed: () {
+            onPressed!(color);
+          },
+          onLongPress: () {
+            onLongPressed!(color);
+          }));
+    }
+    return color_buttons;
   }
 
-  TextStyle? _getTextStyle(BuildContext context) {
-    if (client.is_connected) return null;
-
-    return TextStyle(
-      color: Colors.black54,
-      decoration: TextDecoration.lineThrough,
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Row(
+        children: _buildColorTemplateList(),
+      ),
     );
   }
+}
 
-  Color fromJsonColor(color) {
-    return Color.fromARGB(255, color["r"], color["g"], color["b"]);
+class GpioButtons extends StatelessWidget {
+  final List<bool> gpios;
+  final Function(List<bool>)? onPressed;
+
+  GpioButtons({Key? key, required this.gpios, this.onPressed})
+      : super(key: key);
+
+  List<Widget> _buildGpioButtonList() {
+    List<ElevatedButton> gpio_buttons =
+        []; // this will hold Rows according to available lines
+    for (var gpio in gpios) {
+      gpio_buttons.add(ElevatedButton(
+        child: null,
+        style: ElevatedButton.styleFrom(
+          primary: gpio ? Colors.blueAccent : Colors.black54, // background
+          onPrimary: Colors.white, // foreground
+        ),
+        onPressed: () {
+          onPressed!(gpios);
+        },
+      ));
+    }
+    return gpio_buttons;
   }
 
-  Map<String, int> toJsonColor(color) {
-    return {"r": color.red, "g": color.green, "b": color.blue};
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Row(
+        children: _buildGpioButtonList(),
+      ),
+    );
   }
+}
 
-  void changeColor(Color color) {
-    client.color = toJsonColor(color);
-    clientCommunication.send(
-        WebsocketActionId.CLIENT_VALUE_UPDATED, {"client": client.toJson()});
-  }
+class OverallControl extends StatelessWidget {
+  final Map<String, dynamic> ui_config;
 
-  void addColorTemplate(Map<String, int> color) {
-    client.color_templates.add(color);
-    clientCommunication.send(
-        WebsocketActionId.CLIENT_VALUE_UPDATED, {"client": client.toJson()});
+  OverallControl({Key? key, required this.ui_config}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Card(
+        child: Column(children: [
+          Expanded(
+            child: LedStripControl(
+              color: fromJsonColor(ui_config["color"]),
+              colors: (ui_config["color_templates"] as List)
+                  .map((color) => fromJsonColor(color))
+                  .toList(),
+              title: Text("All Led strips",
+                  style: Theme.of(context).textTheme.bodyText1),
+              onColorChanged: (new_color) {
+                clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED,
+                    {"color": toJsonColor(new_color)});
+                clientCommunication.send(
+                    WebsocketActionId.ALL_LED_STRIPS_UPDATED,
+                    {"color": toJsonColor(new_color)});
+              },
+              onColorAdded: (new_colors) {
+                clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED, {
+                  "color_templates":
+                      new_colors.map((color) => toJsonColor(color)).toList()
+                });
+              },
+              onColorRemoved: (new_colors) {
+                clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED, {
+                  "color_templates":
+                      new_colors.map((color) => toJsonColor(color)).toList()
+                });
+              },
+            ),
+          ),
+        ]),
+      ),
+    );
   }
+}
+
+class LedStripControl extends StatelessWidget {
+  final Color color;
+  final List<Color> colors;
+  final Text title;
+  Function(Color) onColorChanged;
+  Function(List<Color>) onColorAdded;
+  Function(List<Color>) onColorRemoved;
+
+  LedStripControl(
+      {Key? key,
+      required this.color,
+      required this.colors,
+      required this.title,
+      required this.onColorChanged,
+      required this.onColorAdded,
+      required this.onColorRemoved})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            flex: 1,
+            child: GestureDetector(
+              onTap: () {
+                showColorPicker(context, color, onColorChanged);
+              },
+              onLongPress: () {
+                colors.add(color);
+                onColorAdded(colors);
+              },
+              child: CircleAvatar(
+                backgroundColor: color,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: title,
+          ),
+          Expanded(
+            flex: 3,
+            child: ColorTemplates(
+              colors: colors,
+              onPressed: onColorChanged,
+              onLongPressed: (color) {
+                colors.remove(color);
+                onColorRemoved(colors);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class GPIOControl extends StatelessWidget {
+  final Text title;
+  final List<bool> gpios;
+  Function(List<bool>) onValueChanged;
+
+  GPIOControl(
+      {Key? key,
+      required this.title,
+      required this.gpios,
+      required this.onValueChanged})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -200,135 +429,131 @@ class LedStripItem extends StatelessWidget {
           Expanded(
             flex: 1,
             child: CircleAvatar(
-              backgroundColor: _getColor(context),
+              backgroundColor: Theme.of(context).accentColor,
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(client.name, style: _getTextStyle(context)),
+            child: title,
           ),
           Expanded(
             flex: 3,
-            child: Row(
-              children: _buildColorTemplateList(),
+            child: GpioButtons(
+              gpios: gpios,
+              onPressed: onValueChanged,
             ),
-          ),
-          DropdownButton(
-            items: <String>['Add new color template', 'Change color']
-                .map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (value) {
-              switch (value) {
-                case 'Add new color template':
-                  addColorTemplate(client.color);
-                  break;
-                case 'Change color':
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        titlePadding: const EdgeInsets.all(0.0),
-                        contentPadding: const EdgeInsets.all(0.0),
-                        content: SingleChildScrollView(
-                          child: ColorPicker(
-                            pickerColor: fromJsonColor(client.color),
-                            onColorChanged: changeColor,
-                            colorPickerWidth: 300.0,
-                            pickerAreaHeightPercent: 0.7,
-                            enableAlpha: true,
-                            displayThumbColor: true,
-                            showLabel: true,
-                            paletteType: PaletteType.hsv,
-                            pickerAreaBorderRadius: const BorderRadius.only(
-                              topLeft: const Radius.circular(2.0),
-                              topRight: const Radius.circular(2.0),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                  break;
-                default:
-              }
-            },
-          ),
-          ElevatedButton(
-            child: const Icon(
-              Icons.more_vert,
-              size: 16.0,
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    titlePadding: const EdgeInsets.all(0.0),
-                    contentPadding: const EdgeInsets.all(0.0),
-                    content: SingleChildScrollView(
-                      child: ColorPicker(
-                        pickerColor: fromJsonColor(client.color),
-                        onColorChanged: changeColor,
-                        colorPickerWidth: 300.0,
-                        pickerAreaHeightPercent: 0.7,
-                        enableAlpha: true,
-                        displayThumbColor: true,
-                        showLabel: true,
-                        paletteType: PaletteType.hsv,
-                        pickerAreaBorderRadius: const BorderRadius.only(
-                          topLeft: const Radius.circular(2.0),
-                          topRight: const Radius.circular(2.0),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
           ),
         ],
       ),
     );
   }
-
-  List<Widget> _buildColorTemplateList() {
-    List<ElevatedButton> color_buttons =
-        []; // this will hold Rows according to available lines
-    for (var color in client.color_templates) {
-      color_buttons.add(ElevatedButton(
-        child: null,
-        style: ElevatedButton.styleFrom(
-          primary: fromJsonColor(color), // background
-          onPrimary: Colors.white, // foreground
-        ),
-        onPressed: () {
-          changeColor(fromJsonColor(color));
-        },
-      ));
-    }
-    return color_buttons;
-  }
 }
 
-class LedStripList extends StatelessWidget {
+class LedStripControlList extends StatelessWidget {
   final List<LedStripClient> ledStripClients;
 
-  LedStripList({Key? key, required this.ledStripClients}) : super(key: key);
+  LedStripControlList({Key? key, required this.ledStripClients})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: ListView(
-        padding: EdgeInsets.symmetric(vertical: 8.0),
-        children: ledStripClients.map((client) {
-          return LedStripItem(
-            client: client,
-          );
-        }).toList(),
+      child: Card(
+        child: Column(
+          children: [
+            Text(
+              "Led Strips",
+              style: Theme.of(context).textTheme.headline4,
+            ),
+            Column(
+              children: ledStripClients.map((client) {
+                return Card(
+                  child: LedStripControl(
+                    color: client.is_connected
+                        ? fromJsonColor(client.color)
+                        : Colors.black54,
+                    colors: client.color_templates
+                        .map((color) => fromJsonColor(color))
+                        .toList(),
+                    title: Text(client.name,
+                        style: client.is_connected
+                            ? Theme.of(context).textTheme.bodyText1
+                            : TextStyle(
+                                color: Colors.black54,
+                                decoration: TextDecoration.lineThrough,
+                              )),
+                    onColorChanged: (new_color) {
+                      client.color = toJsonColor(new_color);
+                      clientCommunication.send(
+                          WebsocketActionId.CLIENT_VALUE_UPDATED,
+                          {"client": client.toJson()});
+                    },
+                    onColorAdded: (new_colors) {
+                      client.color_templates = new_colors
+                          .map((color) => toJsonColor(color))
+                          .toList();
+                      clientCommunication.send(
+                          WebsocketActionId.CLIENT_VALUE_UPDATED,
+                          {"client": client.toJson()});
+                    },
+                    onColorRemoved: (new_colors) {
+                      client.color_templates = new_colors
+                          .map((color) => toJsonColor(color))
+                          .toList();
+                      clientCommunication.send(
+                          WebsocketActionId.CLIENT_VALUE_UPDATED,
+                          {"client": client.toJson()});
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GpioControlList extends StatelessWidget {
+  final List<GpioClient> gpioClients;
+
+  GpioControlList({Key? key, required this.gpioClients}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Card(
+        child: Column(
+          children: [
+            Text(
+              "GPIOs",
+              style: Theme.of(context).textTheme.headline4,
+            ),
+            Column(
+              children: gpioClients.map((client) {
+                return Card(
+                  child: GPIOControl(
+                    title: Text(client.name,
+                        style: client.is_connected
+                            ? Theme.of(context).textTheme.bodyText1
+                            : TextStyle(
+                                color: Colors.black54,
+                                decoration: TextDecoration.lineThrough,
+                              )),
+                    gpios: client.gpios,
+                    onValueChanged: (new_gpios) {
+                      client.gpios = new_gpios;
+                      clientCommunication.send(
+                          WebsocketActionId.CLIENT_VALUE_UPDATED,
+                          {"client": client.toJson()});
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
     );
   }

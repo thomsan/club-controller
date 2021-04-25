@@ -48,3 +48,21 @@ class LedStripClient extends Client {
       _$LedStripClientFromJson(json);
   Map<String, dynamic> toJson() => _$LedStripClientToJson(this);
 }
+
+@JsonSerializable()
+class GpioClient extends Client {
+  List<bool> gpios;
+
+  GpioClient(
+      {required uid,
+      required name,
+      required type_id,
+      required is_connected,
+      required this.gpios})
+      : super(
+            uid: uid, name: name, type_id: type_id, is_connected: is_connected);
+
+  factory GpioClient.fromJson(Map<String, dynamic> json) =>
+      _$GpioClientFromJson(json);
+  Map<String, dynamic> toJson() => _$GpioClientToJson(this);
+}
