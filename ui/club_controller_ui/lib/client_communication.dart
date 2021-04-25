@@ -23,6 +23,9 @@ enum WebsocketActionId {
   CLIENT_DISCONNECTED,
   CLIENT_VALUE_UPDATED,
   ALL_LED_STRIPS_UPDATED,
+  UI_CONFIG_REQUEST,
+  UI_CONFIG,
+  UI_CONFIG_UPDATED,
 }
 
 class ClientCommunication {
@@ -49,7 +52,7 @@ class ClientCommunication {
     /// let's deserialize it to get the corresponding
     /// JSON object
     ///
-    Map message = json.decode(serverMessage);
+    Map<String, dynamic> message = json.decode(serverMessage);
     int action = message["action"];
     print("Received message: ");
     print(message);

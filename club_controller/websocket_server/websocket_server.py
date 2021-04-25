@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-
-# WS server example that synchronizes state across clients
-
 import asyncio
 import json
 import threading
@@ -12,9 +9,10 @@ from club_controller.protocol.message_ids import WebsocketActionId
 
 
 class WebsocketServer:
-    def __init__(self, client_handler):
+    def __init__(self, client_handler, ui_config_manager):
         self.client_handler = client_handler
         self.websocket_clients = set()
+        self.ui_config_manager = ui_config_manager
 
     async def on_message_received(self, websocket, message):
         if __debug__:
@@ -32,6 +30,11 @@ class WebsocketServer:
         elif message_id == WebsocketActionId.ALL_LED_STRIPS_UPDATED:
             self.client_handler.update_all(data["data"])
             await self.send_to_all(self.get_client_list_message())
+        elif message_id == WebsocketActionId.UI_CONFIG_REQUEST:
+            await websocket.send(self.get_ui_config_message())
+        elif message_id == WebsocketActionId.UI_CONFIG_UPDATED:
+            self.ui_config_manager.update(data["data"])
+            await self.send_to_all(self.get_ui_config_message())
         else:
             if __debug__:
                 print("Message id not implemented: ", message_id)
@@ -39,6 +42,10 @@ class WebsocketServer:
 
     def get_client_list_message(self):
         return json.dumps({"action": int(WebsocketActionId.CLIENT_LIST), "clients": list(map(lambda c: c.toJson(), self.client_handler.get_clients()))})
+
+
+    def get_ui_config_message(self):
+        return json.dumps({"action": int(WebsocketActionId.UI_CONFIG), "ui": self.ui_config_manager.get()})
 
 
     async def send_to_all_but_this(self, websocket, message):

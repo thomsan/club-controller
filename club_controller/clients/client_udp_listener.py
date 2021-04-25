@@ -5,11 +5,12 @@ import socket
 from threading import Lock
 
 import club_controller.config as app_config
+from club_controller.protocol.message_ids import (ClientMessageId,
+                                                  ServerMessageId)
 from eventhandler import EventHandler
-from club_controller.protocol.message_ids import ClientMessageId, ServerMessageId
 
 from .client import ON_TIMEOUT_EVENT_MESSAGE
-from .client_provider import clientProvider
+from .client_provider import client_provider
 from .client_type_id import ClientTypeId
 
 ON_CLIENT_CONNECTED_EVENT_MESSAGE = "onClientConnected"
@@ -17,30 +18,25 @@ ON_CLIENT_DISCONNECTED_EVENT_MESSAGE = "onClientDisconnected"
 
 
 class ClientUDPListener:
-    def __init__(self):
+    def __init__(self, client_config_manager):
         self.clients_lock = Lock()
         self.clients = []
+        self.client_config_manager = client_config_manager
         self.event_handler = EventHandler(ON_CLIENT_CONNECTED_EVENT_MESSAGE, ON_CLIENT_DISCONNECTED_EVENT_MESSAGE)
         self.buffer_size = 1024
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((app_config.SERVER_UDP_IP, app_config.SERVER_UDP_PORT))
         self.is_running = True
-        if not os.path.exists(app_config.SETTINGS_FILE_PATH):
-            self.save_settings_file()
 
-        with open(app_config.SETTINGS_FILE_PATH) as json_file:
-            data = json.load(json_file)
-            print("\nLoaded settings file from: " + str(app_config.SETTINGS_FILE_PATH))
-            print(data)
-            try:
-                for client_json in data['clients']:
-                    known_client = clientProvider.get(client_json["type_id"], **client_json)
-                    if known_client != None:
-                        self.clients.append(known_client)
-                print("\nSettings file was loaded successfully\n")
-            except:
-                print("\nSettings file is corrupt\n")
+        try:
+            for client_json in client_config_manager.get()['clients']:
+                known_client = client_provider.get(client_json["type_id"], **client_json)
+                if known_client != None:
+                    self.clients.append(known_client)
+            print("\nSettings file was loaded successfully\n")
+        except:
+            print("\nSettings file is corrupt\n")
 
 
     def get_new_client_uid(self):
@@ -76,7 +72,7 @@ class ClientUDPListener:
         for client in self.get_clients():
             client.stop()
         self.is_running = False
-        self.save_settings_file()
+        self.update_clients_config()
 
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
@@ -170,7 +166,7 @@ class ClientUDPListener:
                 self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, known_client)
                 known_client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
 
-                self.save_settings_file()
+                self.update_clients_config()
                 if __debug__:
                     print("Client re-connected: " + str(known_client.name))
         else:
@@ -187,7 +183,7 @@ class ClientUDPListener:
             new_client.send_connection_message()
             self.event_handler.fire(ON_CLIENT_CONNECTED_EVENT_MESSAGE, new_client)
             new_client.event_handler.link(self.on_client_timeout, ON_TIMEOUT_EVENT_MESSAGE)
-            self.save_settings_file()
+            self.update_clients_config()
             if __debug__:
                 print("New client connected with ip: " + str(new_client.ip))
 
@@ -216,15 +212,12 @@ class ClientUDPListener:
         self.clients_lock.release()
 
 
-    def save_settings_file(self):
+    def update_clients_config(self):
         data = {}
         self.clients_lock.acquire()
         data["clients"] = list(map(lambda c : c.toJson(), self.clients))
         self.clients_lock.release()
-        if __debug__:
-            print("\nSaving settings file: " + str(data) + "\n")
-        with open(app_config.SETTINGS_FILE_PATH, "w") as f:
-            json.dump(data, f, indent=4)
+        self.client_config_manager.update(data)
 
 
     def print_client_list(self):
