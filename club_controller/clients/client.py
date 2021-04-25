@@ -35,7 +35,8 @@ class Client(ABC):
 
 
     def stop(self):
-        self.send_int_as_byte(ServerMessageId.DISCONNECT)
+        if self.is_connected:
+            self.send_int_as_byte(ServerMessageId.DISCONNECT)
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
         except:
