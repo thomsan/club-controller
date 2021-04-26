@@ -21,20 +21,22 @@
 
 // Network information
 #define DHCP 1 // 0: DHCP off => set network configuration below, 1: DHCP active (auto ip)
-IPAddress ip(192, 168, 178, 46);
 IPAddress broadcast(192, 168, 178, 255);
+#if not DHCP
+IPAddress ip(192, 168, 178, 46);
 // Set gateway to your router's gateway
 IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
+#endif
 
 DynamicJsonDocument receivedServerConfigJson(1024);
-DynamicJsonDocument clientParamsJson(1024);
+DynamicJsonDocument clientParameterJson(1024);
 typedef enum {
     CONNECT = 0,
     DISCONNECT = 1,
     KEEPALIVE = 2,
     ALREADY_CONNECTED = 3,
-    LED_STRIP_UPDATE = 50
+    LED_STRIP_UPDATE = 100
 } ServerMessageId;
 
 typedef enum {
@@ -86,7 +88,7 @@ RgbColor blue(0,0,10);
 RgbColor yellow(10,10,0);
 
 void initStrip(){
-  if (strip != NULL) { 
+  if (strip != NULL) {
     delete strip;
   }
   Serial.println("deleted strip");
@@ -106,7 +108,9 @@ void setup() {
     initStrip();
     flashPattern(red, 5, 50);
 
-    //WiFi.config(ip, gateway, subnet);
+    #if not DHCP
+    WiFi.config(ip, gateway, subnet);
+    #endif
     WiFi.begin(ssid, password);
     Serial.println("");
     // Connect to wifi and print the IP address over serial
@@ -117,7 +121,7 @@ void setup() {
     }
     Serial.println("Connected to WIFI");
     printWifiStatus();
-    setupClientParamsJson();
+    setupClientParameterJson();
     messageUdpPort.begin(localPort);
     broadcastUdpPort.begin(remoteBroadcastPort);
     flashPattern(blue, 5, 50);
@@ -127,9 +131,9 @@ void loop() {
     nowMS = millis();
     if(!isConnectedToServer){
         if(nowMS - lastClientBroadcastMS >= CLIENT_BROADCAST_DELAY_MS){
-          int len = measureJson(clientParamsJson);
-          serializeJson(clientParamsJson, broadcastMessageBuffer);
-          Serial.printf("Sending clientParamsJson with length: %i\n", len);
+          int len = measureJson(clientParameterJson);
+          serializeJson(clientParameterJson, broadcastMessageBuffer);
+          Serial.printf("Sending clientParameterJson with length: %i\n", len);
           broadcastMessage(CLIENT_MESSAGE_ID_CONNECT, broadcastMessageBuffer, len);
           flashPattern(yellow, 2, 20);
           lastClientBroadcastMS = nowMS;
@@ -178,12 +182,11 @@ void loop() {
     #endif
 }
 
-void setupClientParamsJson(){
-    DynamicJsonDocument ledStripParamsJson(1024);
-    clientParamsJson["type_id"] = clientType;
-    clientParamsJson["mac"] = WiFi.macAddress();
-    clientParamsJson["ip"] = ipAddress2String(WiFi.localIP());
-    clientParamsJson["port"] = localPort;
+void setupClientParameterJson(){
+    clientParameterJson["type_id"] = clientType;
+    clientParameterJson["mac"] = WiFi.macAddress();
+    clientParameterJson["ip"] = ipAddress2String(WiFi.localIP());
+    clientParameterJson["port"] = localPort;
 }
 
 void broadcastMessage(uint8_t messageId, char* messageBuffer, int len) {
@@ -228,7 +231,7 @@ void handleMessage(int messageId, int len, char *buffer){
             onLedStripUpdateMessage(len, buffer);
             break;
         default:
-            Serial.printf("Can't handle message with id: %d\n", messageId);
+            Serial.printf("Ignoring message with id: %d\n", messageId);
     }
 }
 
