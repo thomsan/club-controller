@@ -6,7 +6,8 @@ class ServerMessageId(IntEnum):
     DISCONNECT = 1
     KEEPALIVE = 2
     ALREADY_CONNECTED = 3
-    LED_STRIP_UPDATE = 50
+    LED_STRIP_UPDATE = 100
+    GPIO_UPDATE = 200
 
 class ClientMessageId(IntEnum):
     CONNECT = 0

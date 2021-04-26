@@ -21,6 +21,7 @@ TODO
 
 # Tech/frameworks used
 TODO
+* [Club controller communication.txt](club_controller_communication.txt) can be viewed/modified with [sequencediagram.org](https://sequencediagram.org/)
 
 # Contribute
 TODO

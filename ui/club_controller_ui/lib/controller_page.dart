@@ -1,11 +1,8 @@
-import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import 'client_communication.dart';
-import 'package:flutter/material.dart';
-import 'start_page.dart';
-import 'dart:convert';
 import 'model/client.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 Color fromJsonColor(color) {
   return Color.fromARGB(255, color["r"], color["g"], color["b"]);
@@ -83,6 +80,40 @@ class _ControllerPageState extends State<ControllerPage> {
     return _clients.where((c) => c.type_id == ClientTypeId.GPIO_CLIENT).toList().cast<GpioClient>();
   }*/
 
+  Client? getClient(Map<String, dynamic> clientJson) {
+    Client? client = null;
+    switch (ClientTypeId.values[clientJson["type_id"]]) {
+      case ClientTypeId.LED_STRIP_CLIENT:
+        client = _led_strip_clients
+            .asMap()
+            .values
+            .firstWhere((c) => c.uid == clientJson["uid"], orElse: null);
+        break;
+      case ClientTypeId.GPIO_CLIENT:
+        client = _gpio_clients
+            .asMap()
+            .values
+            .firstWhere((c) => c.uid == clientJson["uid"], orElse: null);
+        break;
+      default:
+        int type_id = clientJson["type_id"];
+        print("Unkown ClientTypeId: $type_id");
+    }
+    return client;
+  }
+
+  void createClient(Map<String, dynamic> clientJson) {
+    switch (ClientTypeId.values[clientJson["type_id"]]) {
+      case ClientTypeId.LED_STRIP_CLIENT:
+        _led_strip_clients.add(LedStripClient.fromJson(clientJson));
+        break;
+      case ClientTypeId.GPIO_CLIENT:
+        _gpio_clients.add(GpioClient.fromJson(clientJson));
+        break;
+      default:
+    }
+  }
+
   /// -------------------------------------------------------------------
   /// This routine handles all messages that are sent by the server.
   /// In this page, the following actions have to be processed
@@ -93,48 +124,20 @@ class _ControllerPageState extends State<ControllerPage> {
     switch (WebsocketActionId.values[action]) {
       case WebsocketActionId.CLIENT_CONNECTED:
         print("CLIENT_CONNECTED");
-        print(message["client"]);
         setState(() {
-          LedStripClient client = _led_strip_clients.asMap().values.firstWhere(
-              (c) => c.uid == message["client"]["uid"],
-              orElse: null);
+          Client? client = getClient(message["client"]);
           if (client != null) {
-            // known client
             client.is_connected = true;
           } else {
-            switch (message["client"]["type_id"]) {
-              case ClientTypeId.LED_STRIP_CLIENT:
-                _led_strip_clients
-                    .add(LedStripClient.fromJson(message["client"]));
-                break;
-              case ClientTypeId.GPIO_CLIENT:
-                _gpio_clients.add(GpioClient.fromJson(message["client"]));
-                break;
-              default:
-            }
+            createClient(message["client"]);
           }
         });
         break;
 
       case WebsocketActionId.CLIENT_DISCONNECTED:
         print("CLIENT_DISCONNECTED");
-        print(message["client"]);
         setState(() {
-          Client? client = null;
-          switch (message["client"]["type_id"]) {
-            case ClientTypeId.LED_STRIP_CLIENT:
-              client = _led_strip_clients.asMap().values.firstWhere(
-                  (c) => c.uid == message["client"]["uid"],
-                  orElse: null);
-              break;
-            case ClientTypeId.GPIO_CLIENT:
-              client = _gpio_clients.asMap().values.firstWhere(
-                  (c) => c.uid == message["client"]["uid"],
-                  orElse: null);
-              break;
-            default:
-          }
-
+          Client? client = getClient(message["client"]);
           if (client != null) {
             client.is_connected = false;
           }
@@ -145,14 +148,12 @@ class _ControllerPageState extends State<ControllerPage> {
         setState(() {
           _led_strip_clients = (message["clients"] as List)
               .where((client) =>
-                  // TODO validate client["typeId"]
                   ClientTypeId.values[client["type_id"]] ==
                   ClientTypeId.LED_STRIP_CLIENT)
               .map((client) => LedStripClient.fromJson(client))
               .toList(growable: true);
           _gpio_clients = (message["clients"] as List)
               .where((client) =>
-                  // TODO validate client["typeId"]
                   ClientTypeId.values[client["type_id"]] ==
                   ClientTypeId.GPIO_CLIENT)
               .map((client) => GpioClient.fromJson(client))
@@ -265,28 +266,40 @@ class ColorTemplates extends StatelessWidget {
   }
 }
 
+enum GPIOMode { DISABLED, INPUT, OUTPUT }
+
 class GpioButtons extends StatelessWidget {
-  final List<bool> gpios;
+  final List<int> gpio_modes;
+  final List<bool> gpio_values;
   final Function(List<bool>)? onPressed;
 
-  GpioButtons({Key? key, required this.gpios, this.onPressed})
+  GpioButtons(
+      {Key? key,
+      required this.gpio_modes,
+      required this.gpio_values,
+      this.onPressed})
       : super(key: key);
 
   List<Widget> _buildGpioButtonList() {
     List<ElevatedButton> gpio_buttons =
         []; // this will hold Rows according to available lines
-    for (var gpio in gpios) {
-      gpio_buttons.add(ElevatedButton(
-        child: null,
-        style: ElevatedButton.styleFrom(
-          primary: gpio ? Colors.blueAccent : Colors.black54, // background
-          onPrimary: Colors.white, // foreground
-        ),
-        onPressed: () {
-          onPressed!(gpios);
-        },
-      ));
-    }
+    gpio_modes.asMap().forEach((index, mode) {
+      if (mode == GPIOMode.OUTPUT.index) {
+        gpio_buttons.add(ElevatedButton(
+          child: null,
+          style: ElevatedButton.styleFrom(
+            primary: gpio_values[index]
+                ? Colors.blueAccent
+                : Colors.black54, // background
+            onPrimary: Colors.white, // foreground
+          ),
+          onPressed: () {
+            gpio_values[index] = !gpio_values[index];
+            onPressed!(gpio_values);
+          },
+        ));
+      }
+    });
     return gpio_buttons;
   }
 
@@ -320,6 +333,7 @@ class OverallControl extends StatelessWidget {
               title: Text("All Led strips",
                   style: Theme.of(context).textTheme.bodyText1),
               onColorChanged: (new_color) {
+                // TODO only send a certain number of requests per second
                 clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED,
                     {"color": toJsonColor(new_color)});
                 clientCommunication.send(
@@ -409,13 +423,15 @@ class LedStripControl extends StatelessWidget {
 
 class GPIOControl extends StatelessWidget {
   final Text title;
-  final List<bool> gpios;
+  final List<int> gpio_modes;
+  final List<bool> gpio_values;
   Function(List<bool>) onValueChanged;
 
   GPIOControl(
       {Key? key,
       required this.title,
-      required this.gpios,
+      required this.gpio_modes,
+      required this.gpio_values,
       required this.onValueChanged})
       : super(key: key);
 
@@ -439,7 +455,8 @@ class GPIOControl extends StatelessWidget {
           Expanded(
             flex: 3,
             child: GpioButtons(
-              gpios: gpios,
+              gpio_modes: gpio_modes,
+              gpio_values: gpio_values,
               onPressed: onValueChanged,
             ),
           ),
@@ -541,9 +558,10 @@ class GpioControlList extends StatelessWidget {
                                 color: Colors.black54,
                                 decoration: TextDecoration.lineThrough,
                               )),
-                    gpios: client.gpios,
+                    gpio_modes: client.gpio_modes,
+                    gpio_values: client.gpio_values,
                     onValueChanged: (new_gpios) {
-                      client.gpios = new_gpios;
+                      client.gpio_values = new_gpios;
                       clientCommunication.send(
                           WebsocketActionId.CLIENT_VALUE_UPDATED,
                           {"client": client.toJson()});

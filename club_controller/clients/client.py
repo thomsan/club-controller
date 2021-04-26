@@ -36,7 +36,7 @@ class Client(ABC):
 
     def stop(self):
         if self.is_connected:
-            self.send_int_as_byte(ServerMessageId.DISCONNECT)
+            self.send_message_id(ServerMessageId.DISCONNECT)
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
         except:
@@ -51,7 +51,7 @@ class Client(ABC):
         self.sock.sendto(data, (self.ip, self.port))
 
 
-    def send_int_as_byte(self, val):
+    def send_message_id(self, val):
         if __debug__:
             print("Sending " + str(val) + " to " + str((self.ip, self.port)))
         self.send_raw(bytes([int(val)]))
@@ -75,4 +75,5 @@ class Client(ABC):
     def keep_alive(self):
         self.timeout.cancel()
         self.timeout = threading.Timer(5.0, self.on_client_timeout)
+        self.send_message_id(ServerMessageId.KEEPALIVE)
         self.timeout.start()

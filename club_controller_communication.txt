@@ -1,0 +1,87 @@
+title Club controller communication
+
+participant "Led Strip 1" as led1
+participant "Led Strip 2" as led2
+participant "Gpio 1" as gpio1
+participant "Server" as s
+participant "UI 1" as ui1
+participant "UI 2" as ui2
+
+
+
+==UDP client connection==
+
+led1->s:(int) ClientMessageId.CONNECT (0) + \n"{\n  type_id: int,\n  mac: string,\n  ip: string,\n  port: int\n}"
+activate s
+rbox over s: add to clients[]
+led1<-s: (int) ServerMessageId.CONNECT (0)
+deactivate s
+
+led2->s:(int) ClientMessageId.CONNECT (0) + \n"{\n  type_id: int,\n  mac: string,\n  ip: string,\n  port: int\n}"
+activate s
+rbox over s: add to clients[]
+led2<-s: (int) ServerMessageId.CONNECT (0)
+deactivate s
+
+gpio1->s:(int) ClientMessageId.CONNECT (0) + \n"{\n  type_id: int,\n  mac: string,\n  ip: string,\n  port: int\n}"
+activate s
+rbox over s: add to clients[]
+gpio1<-s: (int) ServerMessageId.CONNECT (0)
+deactivate s
+
+
+==UI (Websocket) client connection==
+
+ui1-:4>s: connected
+activate s
+rbox over s: add to websockets[]
+ui1<-s:{\n  "action": WebsocketMessageId.HELLO\n}
+ui1<-s:{\n  "action": int(WebsocketMessageId.CLIENT_LIST),\n  "clients": [...],\n}
+deactivate s
+
+ui2-:4>s: connected
+activate s
+rbox over s: add to websockets[]
+ui2<-s:{\n  "action": WebsocketMessageId.HELLO\n}
+ui2<-s:{\n  "action": int(WebsocketMessageId.CLIENT_LIST),\n  "clients": [...],\n}
+deactivate s
+
+==Audio input updates==
+
+box over s: New audio samples
+activate s
+rbox over s: process with Led Strip 1 properties
+led1<-s:as bytes: \n  (int32) ServerMessageId.LED_STRIP_UPDATE + \n  [(int32)] pixel_data
+deactivate s
+
+box over s: New values
+activate s
+rbox over s: process with Led Strip 2 properties
+led2<-s:as bytes: \n  (int32) ServerMessageId.LED_STRIP_UPDATE + \n  [(int32)] pixel_data
+deactivate s
+
+==UI updates==
+
+box over ui1: User changed led strip property
+activate ui1
+s<-ui1:{\n  "action": WebsocketMessageId.CLIENT_VALUE_UPDATED,\n  "data": {\n    "client": [...]\n  }\n}
+deactivate ui1
+activate s
+box over s: update client properties
+s->ui1:{\n  "action": WebsocketMessageId.CLIENT_LIST,\n  "clients": [...]\n}
+s->ui2:{\n  "action": WebsocketMessageId.CLIENT_LIST,\n  "clients": [...]\n}
+deactivate s
+
+box over ui1: User changed GPIO 1 property
+activate ui1
+s<-ui1:{\n  "action": WebsocketMessageId.CLIENT_VALUE_UPDATED,\n  "data": {\n    "client": [...]\n  }\n}
+deactivate ui1
+activate s
+box over s: update client properties
+s->gpio1: as bytes:\n  (int32) ServerMessageId.GPIO_UPDATE +\n  [(bool)] gpio_data
+activate gpio1
+box over gpio1: update physical GPIOs
+deactivate gpio1
+s->ui1:{\n  "action": WebsocketMessageId.CLIENT_LIST,\n  "clients": [...]\n}
+s->ui2:{\n  "action": WebsocketMessageId.CLIENT_LIST,\n  "clients": [...]\n}
+deactivate s

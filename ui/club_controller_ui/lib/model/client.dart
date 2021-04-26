@@ -51,14 +51,16 @@ class LedStripClient extends Client {
 
 @JsonSerializable()
 class GpioClient extends Client {
-  List<bool> gpios;
+  List<int> gpio_modes;
+  List<bool> gpio_values;
 
   GpioClient(
       {required uid,
       required name,
       required type_id,
       required is_connected,
-      required this.gpios})
+      required this.gpio_modes,
+      required this.gpio_values})
       : super(
             uid: uid, name: name, type_id: type_id, is_connected: is_connected);
 

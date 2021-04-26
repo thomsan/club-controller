@@ -123,7 +123,7 @@ class ClientUDPListener:
     def disconnect(self, client):
         if __debug__:
             print("Client disconnected: " + str(client.ip))
-        client.send_int_as_byte(ServerMessageId.DISCONNECT)
+        client.send_message_id(ServerMessageId.DISCONNECT)
         self.event_handler.fire(ON_CLIENT_DISCONNECTED_EVENT_MESSAGE, client)
         self.clients_lock.acquire()
         self.get_client_by_value("uid", client.uid).is_connected = False

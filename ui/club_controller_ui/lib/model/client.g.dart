@@ -61,7 +61,10 @@ GpioClient _$GpioClientFromJson(Map<String, dynamic> json) {
     name: json['name'],
     type_id: json['type_id'],
     is_connected: json['is_connected'],
-    gpios: (json['gpios'] as List<dynamic>).map((e) => e as bool).toList(),
+    gpio_modes:
+        (json['gpio_modes'] as List<dynamic>).map((e) => e as int).toList(),
+    gpio_values:
+        (json['gpio_values'] as List<dynamic>).map((e) => e as bool).toList(),
   );
 }
 
@@ -71,5 +74,6 @@ Map<String, dynamic> _$GpioClientToJson(GpioClient instance) =>
       'type_id': instance.type_id,
       'name': instance.name,
       'is_connected': instance.is_connected,
-      'gpios': instance.gpios,
+      'gpio_modes': instance.gpio_modes,
+      'gpio_values': instance.gpio_values,
     };
