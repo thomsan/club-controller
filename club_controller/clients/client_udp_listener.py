@@ -155,8 +155,10 @@ class ClientUDPListener:
         if client_already_known:
             if __debug__:
                     print("Client is already known with mac: " + str(known_client.mac))
+            known_client.ip = message_json["ip"]
+            known_client.port = message_json["port"]
             if known_client.is_connected:
-                known_client.send_int_as_byte(ServerMessageId.ALREADY_CONNECTED)
+                known_client.send_message_id(ServerMessageId.ALREADY_CONNECTED)
                 return
             else:
                 self.clients_lock.acquire()

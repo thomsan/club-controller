@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'model/client.dart';
 import 'package:flutter/foundation.dart';
 import 'websocket.dart';
 
