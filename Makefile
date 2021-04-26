@@ -24,3 +24,6 @@ ui-up: ui-build ui-run
 
 ui-stop:
 	docker stop $(UI_DOCKER_NAME); docker rm $(UI_DOCKER_NAME)
+
+flutter-watch:
+	cd ui/club_controller_ui/ && flutter pub run build_runner watch
