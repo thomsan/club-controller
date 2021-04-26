@@ -49,3 +49,6 @@ Temporary Items
 *.pdf
 
 *settings.json
+
+club_controller/clients/*config.json
+club_controller/ui_configs/
