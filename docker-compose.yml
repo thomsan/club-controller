@@ -1,0 +1,14 @@
+version: "3"
+services:
+  club_controller_server:
+    build: ./server/
+    ports:
+      - "60123:60123/udp"
+      - "60124:60124"
+    devices:
+      - /dev/snd:/dev/snd
+
+  club_controller_ui:
+    build: ./ui/
+    ports:
+      - "60125:60125"

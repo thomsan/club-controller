@@ -4,14 +4,14 @@
 echo 'Server start script initialized...'
 
 # Set the port
-PORT=4040
+PORT=60125
 
 # Kill anything that is already running on that port
 echo 'Cleaning port' $PORT '...'
-fuser -k 4040/tcp
+fuser -k 60125/tcp
 
 # Change directories to the release folder
-cd build/web/
+cd ../club_controller_ui/build/web/
 
 # Start the server
 echo 'Starting server on port' $PORT '...'

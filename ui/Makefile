@@ -1,5 +1,5 @@
 UI_DOCKER_NAME=club_controller_ui
-UI_PORT=8080
+UI_PORT=60125
 
 build:
 	docker build -t $(UI_DOCKER_NAME) club_controller_ui/
@@ -8,7 +8,7 @@ build-nc: ## Build the container without caching
 	docker build --no-cache -t $(UI_DOCKER_NAME) club_controller_ui/
 
 run:
-	docker run -it --rm -p=$(UI_PORT):4040 --name="$(UI_DOCKER_NAME)" $(UI_DOCKER_NAME)
+	docker run -it --rm -p=$(UI_PORT):$(UI_PORT) --name="$(UI_DOCKER_NAME)" $(UI_DOCKER_NAME)
 
 up: build run
 
