@@ -2,10 +2,8 @@ import asyncio
 import sys
 from threading import Thread
 
+from club_controller import config as app_config
 import numpy as np
-import pyqtgraph as pg
-import club_controller.config as app_config
-from pyqtgraph.Qt import QtCore, QtGui
 from club_controller.audio_udp_server.dsp import interpolate
 from club_controller.clients.client_udp_listener import ClientUDPListener
 from scipy.ndimage.filters import gaussian_filter1d
@@ -20,8 +18,9 @@ Audio server
 processes the audio input for each client and sends data via UDP connection.
 """
 class AudioServer:
-    def __init__(self, client_handler):
+    def __init__(self, client_handler, show_gui):
         self.client_handler = client_handler
+        self.show_gui = show_gui
         self.samples_per_frame = int(app_config.SAMPLE_RATE / app_config.FPS)
         self.gui_freq_min = 0
         self.gui_freq_max = app_config.SAMPLE_RATE/2
@@ -35,7 +34,7 @@ class AudioServer:
 
 
     def run(self):
-        if app_config.USE_GUI:
+        if self.show_gui:
             self.setup_gui()
         self.audio_input = AudioInput(app_config.SAMPLE_RATE, self.samples_per_frame)
         self.audio_input.run(self.on_microphone_update)
@@ -52,6 +51,8 @@ class AudioServer:
 
     def setup_gui(self):
         # Create GUI window
+        from pyqtgraph.Qt import QtGui
+        import pyqtgraph as pg
         self.app = QtGui.QApplication([])
         self.view = pg.GraphicsView()
         self.layout = pg.GraphicsLayout(border=(100,100,100))
@@ -89,7 +90,7 @@ class AudioServer:
                 client.process(fft_data)
                 client.send_pixel_data()
 
-        if app_config.USE_GUI:
+        if self.show_gui:
             # map to gui freq range
             spacing = app_config.SAMPLE_RATE / 2 / len(fft_data)
             i_min_freq = int(self.gui_freq_min / spacing)

@@ -35,7 +35,7 @@ class _WebsocketAddressFormState extends State<WebsocketAddressForm> {
           TextFormField(
             decoration: InputDecoration(
                 labelText:
-                    'Enter server websocket address e.g. ws://localhost:6789'),
+                    'Enter server websocket address e.g. ws://localhost:60124'),
             controller: widget.controller,
             // The validator receives the text that the user has entered.
             validator: (value) {

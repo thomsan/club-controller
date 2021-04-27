@@ -191,7 +191,7 @@ void setupClientParameterJson(){
 }
 
 void broadcastMessage(uint8_t messageId, char* messageBuffer, int len) {
-  Serial.printf("broadcastUDP messageId: %i\n", messageId);
+  Serial.printf("broadcastUDP messageId: %i to server port %i\n", messageId, remoteBroadcastPort);
   broadcastUdpPort.beginPacketMulticast(broadcast, remoteBroadcastPort, WiFi.localIP());
   broadcastUdpPort.write(messageId);
   broadcastUdpPort.write(messageBuffer, len);

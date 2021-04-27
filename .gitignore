@@ -49,7 +49,7 @@ Temporary Items
 *.pdf
 
 *settings.json
-
-club_controller/clients/*config.json
-club_controller/ui_configs/
 *wifi_settings.h
+
+server/club_controller/clients/*config.json
+server/club_controller/ui_configs/

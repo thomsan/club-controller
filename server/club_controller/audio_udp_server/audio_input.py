@@ -17,6 +17,8 @@ class AudioInput:
         Args:
             callback (function): Callback receives normalized samples in the range 0 to 1.
         """
+        if __debug__:
+            print("Setting up AudioInput")
         p = pyaudio.PyAudio()
         stream = p.open(format=pyaudio.paInt16,
                         channels=1,
@@ -25,6 +27,8 @@ class AudioInput:
                         frames_per_buffer=self.frames_per_buffer)
         overflows = 0
         prev_ovf_time = time.time()
+        if __debug__:
+            print("AudioInput setup finished")
         self.is_running = True
         while self.is_running:
             try:

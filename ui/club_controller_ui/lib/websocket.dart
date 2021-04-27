@@ -9,7 +9,7 @@ WebSocketNotifications socket = new WebSocketNotifications();
 ///
 /// Put your WebSockets server IP address and port number
 ///
-String? serverAddress; //"ws://$hostname:6789";
+String? serverAddress; //"ws://$hostname:60124";
 
 class WebSocketNotifications {
   static final WebSocketNotifications _socket =

@@ -38,7 +38,7 @@ typedef enum {
 // Wifi and socket settings
 const uint8_t clientType = 2;  // 0: LED_STRIP, 1: CONTROLLER, 2: GPIO
 unsigned int localPort = 7777;
-unsigned int remoteBroadcastPort = 8888;
+unsigned int remoteBroadcastPort = 60123;
 char packetBuffer[BUFFER_LEN];
 char broadcastMessageBuffer[1024];
 IPAddress serverIp;

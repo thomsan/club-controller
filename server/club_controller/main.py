@@ -1,23 +1,21 @@
-import asyncio
+import argparse
 import json
 import sys
 from threading import Thread
 from time import sleep
 
-import club_controller.config as app_config
-from club_controller.audio_udp_server.audio_server import AudioServer
-from club_controller.clients.client_udp_listener import ClientUDPListener
-from club_controller.misc.config_manager import ConfigManager
-from club_controller.websocket_server.websocket_server import WebsocketServer
+import config as app_config
+from audio_udp_server.audio_server import AudioServer
+from clients.client_udp_listener import ClientUDPListener
+from misc.config_manager import ConfigManager
+from websocket_server.websocket_server import WebsocketServer
 
-
-def run_audio_server_async():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    run_audio_server = audio_server.run()
-
-    asyncio.get_event_loop().run_until_complete(run_audio_server)
-    asyncio.get_event_loop().run_forever()
+parser = argparse.ArgumentParser(description='Club controller')
+parser.add_argument('--gui', dest='gui', action='store_true')
+parser.add_argument('--no-gui', dest='gui', action='store_false')
+parser.set_defaults(gui=False)
+args = parser.parse_args()
+print(args)
 
 
 if __name__ == '__main__':
@@ -30,7 +28,7 @@ if __name__ == '__main__':
         client_handler_thread = Thread(target=client_handler.run, name="UDP-Listener-Thread")
         client_handler_thread.start()
 
-        audio_server = AudioServer(client_handler)
+        audio_server = AudioServer(client_handler, args.gui)
         audio_server_thread = Thread(target=audio_server.run, name="Audio-Server-Thread")
         audio_server_thread.start()
 
@@ -48,13 +46,9 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('\nInterrupted via Keyboard\n')
         audio_server.stop()
-        print("AUDIO SERVER STOPPED")
         audio_server_thread.join()
-        print("AUDIO SERVER THREAD JOINED")
         client_handler.stop()
-        print("CLIENT HANDLER STOPPED")
         client_handler_thread.join()
-        print("CLIENT HANDLER THREAD JOINED")
         # TODO stop websockets gracefully (it already has a event loop internally)
         #websocket_server.stop()
         is_running = False

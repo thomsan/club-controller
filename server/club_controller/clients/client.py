@@ -4,6 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 
 import eventhandler
+from club_controller import config as app_config
 from club_controller.protocol.message_ids import ServerMessageId
 
 ON_TIMEOUT_EVENT_MESSAGE = "onTimeout"
@@ -37,10 +38,10 @@ class Client(ABC):
     def stop(self):
         if self.is_connected:
             self.send_message_id(ServerMessageId.DISCONNECT)
-        try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-        except:
-            print("Error while shutting down client socket: " + self.name)
+            try:
+                self.sock.shutdown(socket.SHUT_RDWR)
+            except:
+                print("Error while shutting down client socket: " + self.name)
         try:
             self.sock.close()
         except:
@@ -52,14 +53,14 @@ class Client(ABC):
 
 
     def send_message_id(self, val):
-        if __debug__:
+        if __debug__ and app_config.PRINT_UDP_STREAM_MESSAGES:
             print("Sending " + str(val) + " to " + str((self.ip, self.port)))
         self.send_raw(bytes([int(val)]))
 
 
     def send_message(self, message_id, data_bytes):
         message_id_bytes = bytes([int(message_id)])
-        if __debug__ and False:
+        if __debug__ and app_config.PRINT_UDP_STREAM_MESSAGES:
             print("Sending message with id " + str(message_id) + " and length: " + str(len(data_bytes)) + " to " + str((self.ip, self.port)))
         self.send_raw(message_id_bytes + data_bytes)
 

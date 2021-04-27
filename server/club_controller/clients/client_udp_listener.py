@@ -1,6 +1,4 @@
-import copy
 import json
-import os
 import socket
 from threading import Lock
 
@@ -34,9 +32,9 @@ class ClientUDPListener:
                 known_client = client_provider.get(client_json["type_id"], **client_json)
                 if known_client != None:
                     self.clients.append(known_client)
-            print("\nSettings file was loaded successfully\n")
+            print("\nClient list file was loaded successfully\n")
         except:
-            print("\nSettings file is corrupt\n")
+            print("\nClient list file is corrupt\n")
 
 
     def get_new_client_uid(self):
