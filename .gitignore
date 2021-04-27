@@ -52,3 +52,4 @@ Temporary Items
 
 club_controller/clients/*config.json
 club_controller/ui_configs/
+*wifi_settings.h

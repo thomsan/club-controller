@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
+#include "wifi_settings.h"
 
 #define DEBUG 0
 
@@ -35,8 +36,6 @@ typedef enum {
 } ClientMessageId;
 
 // Wifi and socket settings
-const char* ssid     = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
 const uint8_t clientType = 2;  // 0: LED_STRIP, 1: CONTROLLER, 2: GPIO
 unsigned int localPort = 7777;
 unsigned int remoteBroadcastPort = 8888;

@@ -1,4 +1,4 @@
-
+//
 /*
 * This example works for ESP8266 and uses the NeoPixelBus library instead of the one bundle
 * Sketch contributed to by Joey Babcock - https://joeybabcock.me/blog/
@@ -11,6 +11,7 @@
 #include <NeoPixelBus.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include "wifi_settings.h"
 
 #define DEBUG 0
 
@@ -48,9 +49,9 @@ typedef enum {
 const uint8_t PixelPin = 3;  // make sure to set this to the correct pin, ignored for Esp8266(set to 3 by default for DMA)
 
 // Wifi and socket settings
-const uint8_t clientType = 0;  // 0: LED_STRIP_CLIENT, 1: CONTROLLER_CLIENT
+const uint8_t clientType = 0;  // 0: LED_STRIP, 1: CONTROLLER, 2: GPIO
 unsigned int localPort = 7777;
-unsigned int remoteBroadcastPort = 8888;
+unsigned int remoteBroadcastPort = 60123;
 char packetBuffer[BUFFER_LEN];
 char broadcastMessageBuffer[1024];
 IPAddress serverIp;
