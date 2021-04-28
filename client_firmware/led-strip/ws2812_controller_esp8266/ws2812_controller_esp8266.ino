@@ -22,7 +22,7 @@
 
 // Network information
 #define DHCP 1 // 0: DHCP off => set network configuration below, 1: DHCP active (auto ip)
-IPAddress broadcast(192, 168, 178, 255);
+IPAddress broadcastIp;
 #if not DHCP
 IPAddress ip(192, 168, 178, 46);
 // Set gateway to your router's gateway
@@ -132,6 +132,8 @@ void wifiConnectionLoop(){
   }
   Serial.println("Connected to WIFI");
   printWifiStatus();
+  broadcastIp = WiFi.localIP();
+  broadcastIp[3] = 255;
 }
 
 void setup() {
@@ -210,7 +212,7 @@ void setupClientParameterJson(){
 
 void broadcastMessage(uint8_t messageId, char* messageBuffer, int len) {
   Serial.printf("broadcastUDP messageId: %i to server port %i\n", messageId, remoteBroadcastPort);
-  broadcastUdpPort.beginPacketMulticast(broadcast, remoteBroadcastPort, WiFi.localIP());
+  broadcastUdpPort.beginPacketMulticast(broadcastIp, remoteBroadcastPort, WiFi.localIP());
   broadcastUdpPort.write(messageId);
   broadcastUdpPort.write(messageBuffer, len);
   broadcastUdpPort.endPacket();
