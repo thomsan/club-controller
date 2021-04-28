@@ -29,8 +29,9 @@ run-local-debug:
 run-local-debug-gui:
 	python3 $(ROOT_DIR)/club_controller/main.py --gui
 
-requirements:
+requirements: # TODO if not raspi pip3 install pyqt5==15.15.4
 	pip3 install -r requirements.txt
+	pip3 install -e .
 
 dependencies:
 	apt-get update && apt-get install -y \
@@ -39,3 +40,7 @@ dependencies:
 		libasound-dev\
 		libatlas-base-dev \
 		psmisc
+
+
+dependencies-gui-rpi:
+	apt-get install python3-pyqt5
