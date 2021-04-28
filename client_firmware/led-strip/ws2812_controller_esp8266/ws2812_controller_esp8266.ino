@@ -49,6 +49,7 @@ typedef enum {
 const uint8_t PixelPin = 3;  // make sure to set this to the correct pin, ignored for Esp8266(set to 3 by default for DMA)
 
 // Wifi and socket settings
+const int MAX_WIFI_CONNECTION_ATTEMPTS = 10;
 const uint8_t clientType = 0;  // 0: LED_STRIP, 1: CONTROLLER, 2: GPIO
 unsigned int localPort = 7777;
 unsigned int remoteBroadcastPort = 60123;
@@ -58,7 +59,6 @@ IPAddress serverIp;
 uint16_t serverPort;
 
 // timer and counter
-
 uint32_t CLIENT_KEEP_ALIVE_DELAY_MS = 2000;
 uint32_t CLIENT_BROADCAST_DELAY_MS = 5000;
 uint32_t SERVER_KEEP_ALIVE_TIMEOUT_MS = 5000;
@@ -103,25 +103,43 @@ void initStrip(){
   Serial.println("started strip");
 }
 
+
+void wifiConnectionLoop(){
+  #if not DHCP
+  WiFi.config(ip, gateway, subnet);
+  #endif
+  // loop through available wifi credentials
+  int numWifiCredentials = sizeof(ssids)/sizeof(ssids[0]);
+  int i=-1;
+  int iAttempt = MAX_WIFI_CONNECTION_ATTEMPTS;
+  const char* ssid;
+  const char* password;
+  // Connect to wifi and print the IP address over serial
+  while (WiFi.status() != WL_CONNECTED) {
+      if(iAttempt >= MAX_WIFI_CONNECTION_ATTEMPTS){
+        i = (i+1) % numWifiCredentials;
+        ssid  = ssids[i];
+        password  = passwords[i];
+        WiFi.begin(ssid, password);
+        Serial.println("\nConnecting to ssid ");
+        Serial.print(ssid);
+        iAttempt=0;
+      }
+      delay(500);
+      flashPattern(red, 2, 20);
+      Serial.print(".");
+      iAttempt++;
+  }
+  Serial.println("Connected to WIFI");
+  printWifiStatus();
+}
+
 void setup() {
     Serial.begin(115200);
 
     initStrip();
     flashPattern(red, 5, 50);
-
-    #if not DHCP
-    WiFi.config(ip, gateway, subnet);
-    #endif
-    WiFi.begin(ssid, password);
-    Serial.println("");
-    // Connect to wifi and print the IP address over serial
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        flashPattern(red, 2, 20);
-        Serial.print(".");
-    }
-    Serial.println("Connected to WIFI");
-    printWifiStatus();
+    wifiConnectionLoop();
     setupClientParameterJson();
     messageUdpPort.begin(localPort);
     broadcastUdpPort.begin(remoteBroadcastPort);
