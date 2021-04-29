@@ -19,3 +19,11 @@ python3 -m http.server $PORT
 
 # Exit
 echo 'Server exited...'
+
+echo "Press any key to exit"
+while [ true ] ; do
+read -t 3 -n 1
+if [ $? = 0 ] ; then
+exit ;
+fi
+done
