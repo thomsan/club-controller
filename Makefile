@@ -38,7 +38,7 @@ GenericName=Club Controller UI Web Server
 Name[en_US]=Club Controller UI Web Server
 Comment=Web server for hosting the the UI as a web app on this machine
 Icon=$(ROOT_DIR)/icon.png
-Exec=bash -c "cd $(ROOT_DIR)/ui/web_server && bash $(ROOT_DIR)/ui/web_server/server.sh"
+Exec=bash -c "cd $(ROOT_DIR)/ui && bash $(ROOT_DIR)/ui/web_server/server.sh"
 Terminal=true
 Categories=Electronics;
 endef

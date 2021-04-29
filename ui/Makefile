@@ -32,7 +32,9 @@ build-local:
 	flutter build web
 
 run-local:
-	. web_server/server.sh
+	echo 'Starting server on port' $(UI_PORT) '...'
+	cd club_controller_ui/build/web && \
+	python3 -m http.server $(UI_PORT)
 
 build-android:
 	# NOT YET IMPLEMENTED
