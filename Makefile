@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+UI_PORT=60125
 
 run:
 	docker-compose up
@@ -43,6 +44,19 @@ Terminal=true
 Categories=Electronics;
 endef
 
+define CLUB_CONTROLLER_COMPLETE
+[Desktop Entry]
+Type=Application
+Name=Club Controller Complete
+GenericName=Club Controller Complete
+Name[en_US]=Club Controller Complete
+Comment=The one to control them all
+Icon=$(ROOT_DIR)/icon.png
+Exec=bash -c 'cd $(ROOT_DIR)/server/ && $(ROOT_DIR)/server/server.sh & cd $(ROOT_DIR)/ui && $(ROOT_DIR)/ui/web_server/server.sh & x-www-browser http://localhost:$(UI_PORT) & exec $(SHELL)'
+Terminal=true
+Categories=Electronics;
+endef
+
 export CLUB_CONTROLLER_SERVER_DESKTOP
 install-desktop-shortcut-server:
 	$(call create_desktop_shortcut, $$CLUB_CONTROLLER_SERVER_DESKTOP,club_controller_server.desktop)
@@ -50,3 +64,7 @@ install-desktop-shortcut-server:
 export CLUB_CONTROLLER_UI_DESKTOP
 install-desktop-shortcut-ui:
 	$(call create_desktop_shortcut, $$CLUB_CONTROLLER_UI_DESKTOP,club_controller_ui.desktop)
+
+export CLUB_CONTROLLER_COMPLETE
+install-desktop-shortcut-complete:
+	$(call create_desktop_shortcut, $$CLUB_CONTROLLER_COMPLETE,club_controller_complete.desktop)
