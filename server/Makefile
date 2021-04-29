@@ -41,6 +41,5 @@ dependencies:
 		libatlas-base-dev \
 		psmisc
 
-
 dependencies-gui-rpi:
 	apt-get install python3-pyqt5

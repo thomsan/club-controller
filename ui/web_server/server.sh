@@ -11,7 +11,7 @@ echo 'Cleaning port' $PORT '...'
 fuser -k 60125/tcp
 
 # Change directories to the release folder
-cd ../club_controller_ui/build/web/
+cd club_controller_ui/build/web/
 
 # Start the server
 echo 'Starting server on port' $PORT '...'

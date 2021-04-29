@@ -17,3 +17,22 @@ stop:
 
 flutter-watch:
 	cd club_controller_ui/ && flutter pub run build_runner watch
+
+dependencies:
+	sudo snap install flutter --classic
+	flutter channel master
+	flutter upgrade
+	flutter config --enable-web
+	flutter doctor -v
+
+build-local:
+	cd club_controller_ui && \
+	flutter pub get && \
+	flutter pub run build_runner build --delete-conflicting-outputs && \
+	flutter build web
+
+run-local:
+	. web_server/server.sh
+
+build-android:
+	# NOT YET IMPLEMENTED
