@@ -25,3 +25,11 @@ fi
 
 # Exit
 echo 'Club Controller server exited...'
+
+echo "Press any key to exit"
+while [ true ] ; do
+read -t 3 -n 1
+if [ $? = 0 ] ; then
+exit ;
+fi
+done

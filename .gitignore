@@ -53,3 +53,5 @@ Temporary Items
 
 server/club_controller/clients/*config.json
 server/club_controller/ui_configs/
+
+*club_controller.egg-info
