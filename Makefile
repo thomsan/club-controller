@@ -52,7 +52,7 @@ GenericName=Club Controller Complete
 Name[en_US]=Club Controller Complete
 Comment=The one to control them all
 Icon=$(ROOT_DIR)/icon.png
-Exec=bash -c 'cd $(ROOT_DIR)/server/ && $(ROOT_DIR)/server/server.sh & cd $(ROOT_DIR)/ui && $(ROOT_DIR)/ui/web_server/server.sh & x-www-browser http://localhost:$(UI_PORT) & exec $(SHELL)'
+Exec=bash -c 'cd $(ROOT_DIR)/server/ && $(ROOT_DIR)/server/server.sh & cd $(ROOT_DIR)/ui && $(ROOT_DIR)/ui/web_server/server.sh & chromium-browser --app=http://localhost:$(UI_PORT) --start-fullscreen & exec $(SHELL)'
 Terminal=true
 Categories=Electronics;
 endef
