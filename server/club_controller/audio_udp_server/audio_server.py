@@ -78,7 +78,7 @@ class AudioServer:
         vol = np.max(np.abs(rolling_window_samples))
         if vol < app_config.MIN_VOLUME_THRESHOLD:
             fft_data = np.zeros(len(normalized_samples))
-            if __debug__:
+            if __debug__ and app_config.PRINT_VOLUME_THRESHOLD_WARNING:
                 print("Volume below threshold")
         else:
             fft_data = self.dsp.get_fft(rolling_window_samples)

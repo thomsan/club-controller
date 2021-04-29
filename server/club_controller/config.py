@@ -21,5 +21,7 @@ CLIENTS_CONFIG_FILE_PATH = "./club_controller/clients/home_club_clients_config.j
 UI_CONFIG_FILE_PATH = "./club_controller/ui_configs/home_club_ui_config.json"
 """Modify your ui with different config files"""
 
+PRINT_VOLUME_THRESHOLD_WARNING = False
+
 MIN_VOLUME_THRESHOLD = 1e-7
 """No music visualization displayed if input audio volume below threshold. Range 0 to 1."""
