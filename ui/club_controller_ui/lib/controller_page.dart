@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import 'client_communication.dart';
@@ -181,11 +182,12 @@ class _ControllerPageState extends State<ControllerPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: Card(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Card(
                 child: Column(
                   children: [
                     Text(
@@ -196,24 +198,28 @@ class _ControllerPageState extends State<ControllerPage> {
                   ],
                 ),
               ),
-            ),
-            LedStripControlList(ledStripClients: _led_strip_clients),
-            GpioControlList(gpioClients: _gpio_clients),
-            Form(
-              child: TextFormField(
-                controller: _debugController,
-                decoration: InputDecoration(
-                    labelText: 'Send message with given action id'),
+              Card(
+                child: LedStripControlList(ledStripClients: _led_strip_clients),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                clientCommunication.sendActionId(
-                    WebsocketActionId.values[int.parse(_debugController.text)]);
-              },
-              child: Text('Send'),
-            ),
-          ],
+              Card(
+                child: GpioControlList(gpioClients: _gpio_clients),
+              ),
+              Form(
+                child: TextFormField(
+                  controller: _debugController,
+                  decoration: InputDecoration(
+                      labelText: 'Send message with given action id'),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  clientCommunication.sendActionId(WebsocketActionId
+                      .values[int.parse(_debugController.text)]);
+                },
+                child: Text('Send'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -259,7 +265,7 @@ class ColorTemplates extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
-      child: Row(
+      child: Column(
         children: _buildColorTemplateList(),
       ),
     );
@@ -321,41 +327,37 @@ class OverallControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        child: Column(children: [
-          Expanded(
-            child: LedStripControl(
-              color: fromJsonColor(ui_config["color"]),
-              colors: (ui_config["color_templates"] as List)
-                  .map((color) => fromJsonColor(color))
-                  .toList(),
-              title: Text("All Led strips",
-                  style: Theme.of(context).textTheme.bodyText1),
-              onColorChanged: (new_color) {
-                // TODO only send a certain number of requests per second
-                clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED,
-                    {"color": toJsonColor(new_color)});
-                clientCommunication.send(
-                    WebsocketActionId.ALL_LED_STRIPS_UPDATED,
-                    {"color": toJsonColor(new_color)});
-              },
-              onColorAdded: (new_colors) {
-                clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED, {
-                  "color_templates":
-                      new_colors.map((color) => toJsonColor(color)).toList()
-                });
-              },
-              onColorRemoved: (new_colors) {
-                clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED, {
-                  "color_templates":
-                      new_colors.map((color) => toJsonColor(color)).toList()
-                });
-              },
-            ),
-          ),
-        ]),
-      ),
+    return Card(
+      child: Column(children: [
+        LedStripControl(
+          color: fromJsonColor(ui_config["color"]),
+          colors: (ui_config["color_templates"] as List)
+              .map((color) => fromJsonColor(color))
+              .toList(),
+          title: Text("All Led strips",
+              style: Theme.of(context).textTheme.bodyText1),
+          onColorChanged: (new_color) {
+            // TODO only send a certain number of requests per second
+            clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED,
+                {"color": toJsonColor(new_color)});
+            clientCommunication.send(WebsocketActionId.ALL_LED_STRIPS_UPDATED,
+                {"color": toJsonColor(new_color)});
+          },
+          onColorAdded: (new_colors) {
+            clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED, {
+              "color_templates":
+                  new_colors.map((color) => toJsonColor(color)).toList()
+            });
+          },
+          onColorRemoved: (new_colors) {
+            clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED, {
+              "color_templates":
+                  new_colors.map((color) => toJsonColor(color)).toList()
+            });
+          },
+        ),
+        // TODO add smoke machine
+      ]),
     );
   }
 }
@@ -474,60 +476,54 @@ class LedStripControlList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        child: Column(
-          children: [
-            Text(
-              "Led Strips",
-              style: Theme.of(context).textTheme.headline4,
-            ),
-            Column(
-              children: ledStripClients.map((client) {
-                return Card(
-                  child: LedStripControl(
-                    color: client.is_connected
-                        ? fromJsonColor(client.color)
-                        : Colors.black54,
-                    colors: client.color_templates
-                        .map((color) => fromJsonColor(color))
-                        .toList(),
-                    title: Text(client.name,
-                        style: client.is_connected
-                            ? Theme.of(context).textTheme.bodyText1
-                            : TextStyle(
-                                color: Colors.black54,
-                                decoration: TextDecoration.lineThrough,
-                              )),
-                    onColorChanged: (new_color) {
-                      client.color = toJsonColor(new_color);
-                      clientCommunication.send(
-                          WebsocketActionId.CLIENT_VALUE_UPDATED,
-                          {"client": client.toJson()});
-                    },
-                    onColorAdded: (new_colors) {
-                      client.color_templates = new_colors
-                          .map((color) => toJsonColor(color))
-                          .toList();
-                      clientCommunication.send(
-                          WebsocketActionId.CLIENT_VALUE_UPDATED,
-                          {"client": client.toJson()});
-                    },
-                    onColorRemoved: (new_colors) {
-                      client.color_templates = new_colors
-                          .map((color) => toJsonColor(color))
-                          .toList();
-                      clientCommunication.send(
-                          WebsocketActionId.CLIENT_VALUE_UPDATED,
-                          {"client": client.toJson()});
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+    return Column(
+      children: [
+        Text(
+          "Led Strips",
+          style: Theme.of(context).textTheme.headline4,
         ),
-      ),
+        Column(
+          children: ledStripClients.map((client) {
+            return Card(
+              child: LedStripControl(
+                color: client.is_connected
+                    ? fromJsonColor(client.color)
+                    : Colors.black54,
+                colors: client.color_templates
+                    .map((color) => fromJsonColor(color))
+                    .toList(),
+                title: Text(client.name,
+                    style: client.is_connected
+                        ? Theme.of(context).textTheme.bodyText1
+                        : TextStyle(
+                            color: Colors.black54,
+                            decoration: TextDecoration.lineThrough,
+                          )),
+                onColorChanged: (new_color) {
+                  client.color = toJsonColor(new_color);
+                  clientCommunication.send(
+                      WebsocketActionId.CLIENT_VALUE_UPDATED,
+                      {"client": client.toJson()});
+                },
+                onColorAdded: (new_colors) {
+                  client.color_templates =
+                      new_colors.map((color) => toJsonColor(color)).toList();
+                  clientCommunication.send(
+                      WebsocketActionId.CLIENT_VALUE_UPDATED,
+                      {"client": client.toJson()});
+                },
+                onColorRemoved: (new_colors) {
+                  client.color_templates =
+                      new_colors.map((color) => toJsonColor(color)).toList();
+                  clientCommunication.send(
+                      WebsocketActionId.CLIENT_VALUE_UPDATED,
+                      {"client": client.toJson()});
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
@@ -539,40 +535,36 @@ class GpioControlList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        child: Column(
-          children: [
-            Text(
-              "GPIOs",
-              style: Theme.of(context).textTheme.headline4,
-            ),
-            Column(
-              children: gpioClients.map((client) {
-                return Card(
-                  child: GPIOControl(
-                    title: Text(client.name,
-                        style: client.is_connected
-                            ? Theme.of(context).textTheme.bodyText1
-                            : TextStyle(
-                                color: Colors.black54,
-                                decoration: TextDecoration.lineThrough,
-                              )),
-                    gpio_modes: client.gpio_modes,
-                    gpio_values: client.gpio_values,
-                    onValueChanged: (new_gpios) {
-                      client.gpio_values = new_gpios;
-                      clientCommunication.send(
-                          WebsocketActionId.CLIENT_VALUE_UPDATED,
-                          {"client": client.toJson()});
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+    return Column(
+      children: [
+        Text(
+          "GPIOs",
+          style: Theme.of(context).textTheme.headline4,
         ),
-      ),
+        Column(
+          children: gpioClients.map((client) {
+            return Card(
+              child: GPIOControl(
+                title: Text(client.name,
+                    style: client.is_connected
+                        ? Theme.of(context).textTheme.bodyText1
+                        : TextStyle(
+                            color: Colors.black54,
+                            decoration: TextDecoration.lineThrough,
+                          )),
+                gpio_modes: client.gpio_modes,
+                gpio_values: client.gpio_values,
+                onValueChanged: (new_gpios) {
+                  client.gpio_values = new_gpios;
+                  clientCommunication.send(
+                      WebsocketActionId.CLIENT_VALUE_UPDATED,
+                      {"client": client.toJson()});
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
