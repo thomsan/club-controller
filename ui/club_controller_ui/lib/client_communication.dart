@@ -12,6 +12,7 @@ enum ClientTypeId {
   CONTROLLER_CLIENT,
   GPIO_CLIENT,
   SMOKE_MACHINE_CLIENT,
+  NEC_LED_STRIP_CLIENT,
 }
 
 enum WebsocketActionId {
@@ -25,6 +26,7 @@ enum WebsocketActionId {
   UI_CONFIG_REQUEST,
   UI_CONFIG,
   UI_CONFIG_UPDATED,
+  NEC_COMMAND,
 }
 
 class ClientCommunication {
@@ -82,6 +84,11 @@ class ClientCommunication {
 
   sendActionId(WebsocketActionId action) {
     socket.send(json.encode({"action": action.index}));
+  }
+
+  sendNecCommand(Map<String, dynamic> clientJson, String command) {
+    send(WebsocketActionId.NEC_COMMAND,
+        {"client": clientJson, "command": command});
   }
 
   /// ==========================================================

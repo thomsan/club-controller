@@ -6,7 +6,8 @@ class ServerMessageId(IntEnum):
     DISCONNECT = 1
     KEEPALIVE = 2
     ALREADY_CONNECTED = 3
-    LED_STRIP_UPDATE = 100
+    LED_STRIP_UPDATE = 100,
+    LED_STRIP_NEC_UPDATE = 101
     GPIO_UPDATE = 200
 
 class ClientMessageId(IntEnum):
@@ -23,4 +24,5 @@ class WebsocketActionId(IntEnum):
     ALL_LED_STRIPS_UPDATED = 6
     UI_CONFIG_REQUEST = 7
     UI_CONFIG = 8
-    UI_CONFIG_UPDATED = 9
+    UI_CONFIG_UPDATED = 9,
+    NEC_COMMAND = 10

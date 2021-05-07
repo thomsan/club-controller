@@ -35,6 +35,9 @@ class WebsocketServer:
         elif message_id == WebsocketActionId.UI_CONFIG_UPDATED:
             self.ui_config_manager.update(data["data"])
             await self.send_to_all(self.get_ui_config_message())
+        elif message_id == WebsocketActionId.NEC_COMMAND:
+            nec_led_strip_client = self.client_handler.get_client_by_value("uid", data["data"]["client"]["uid"])
+            nec_led_strip_client.send_nec_command(data["data"]["command"])
         else:
             if __debug__:
                 print("Message id not implemented: ", message_id)

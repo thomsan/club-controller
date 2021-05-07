@@ -56,6 +56,7 @@ class _ControllerPageState extends State<ControllerPage> {
   /// At first initialization, the client list is empty
   ///
   List<LedStripClient> _led_strip_clients = List.empty(growable: true);
+  List<NecLedStripClient> _nec_led_strip_clients = List.empty(growable: true);
   List<GpioClient> _gpio_clients = List.empty(growable: true);
   Map<String, dynamic> _ui_config = {};
 
@@ -90,6 +91,12 @@ class _ControllerPageState extends State<ControllerPage> {
             .values
             .firstWhere((c) => c.uid == clientJson["uid"], orElse: null);
         break;
+      case ClientTypeId.NEC_LED_STRIP_CLIENT:
+        client = _nec_led_strip_clients
+            .asMap()
+            .values
+            .firstWhere((c) => c.uid == clientJson["uid"], orElse: null);
+        break;
       case ClientTypeId.GPIO_CLIENT:
         client = _gpio_clients
             .asMap()
@@ -107,6 +114,9 @@ class _ControllerPageState extends State<ControllerPage> {
     switch (ClientTypeId.values[clientJson["type_id"]]) {
       case ClientTypeId.LED_STRIP_CLIENT:
         _led_strip_clients.add(LedStripClient.fromJson(clientJson));
+        break;
+      case ClientTypeId.NEC_LED_STRIP_CLIENT:
+        _nec_led_strip_clients.add(NecLedStripClient.fromJson(clientJson));
         break;
       case ClientTypeId.GPIO_CLIENT:
         _gpio_clients.add(GpioClient.fromJson(clientJson));
@@ -152,6 +162,12 @@ class _ControllerPageState extends State<ControllerPage> {
                   ClientTypeId.values[client["type_id"]] ==
                   ClientTypeId.LED_STRIP_CLIENT)
               .map((client) => LedStripClient.fromJson(client))
+              .toList(growable: true);
+          _nec_led_strip_clients = (message["clients"] as List)
+              .where((client) =>
+                  ClientTypeId.values[client["type_id"]] ==
+                  ClientTypeId.NEC_LED_STRIP_CLIENT)
+              .map((client) => NecLedStripClient.fromJson(client))
               .toList(growable: true);
           _gpio_clients = (message["clients"] as List)
               .where((client) =>
@@ -200,6 +216,10 @@ class _ControllerPageState extends State<ControllerPage> {
               ),
               Card(
                 child: LedStripControlList(ledStripClients: _led_strip_clients),
+              ),
+              Card(
+                child: NecLedStripControlList(
+                    necLedStripClients: _nec_led_strip_clients),
               ),
               Card(
                 child: GpioControlList(gpioClients: _gpio_clients),
@@ -257,6 +277,41 @@ class ColorTemplates extends StatelessWidget {
           onLongPress: () {
             onLongPressed!(color);
           }));
+    }
+    return color_buttons;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Column(
+        children: _buildColorTemplateList(),
+      ),
+    );
+  }
+}
+
+class NecColorTemplates extends StatelessWidget {
+  final List<Map<String, dynamic>> colors;
+  final Function(Map<String, dynamic>)? onPressed;
+  NecColorTemplates({Key? key, required this.colors, this.onPressed})
+      : super(key: key);
+
+  List<Widget> _buildColorTemplateList() {
+    List<ElevatedButton> color_buttons =
+        []; // this will hold Rows according to available lines
+    for (var color in colors) {
+      color_buttons.add(ElevatedButton(
+        child: null,
+        style: ElevatedButton.styleFrom(
+          primary: fromJsonColor(color), // background
+          onPrimary: Colors.white, // foreground
+        ),
+        onPressed: () {
+          onPressed!(color);
+        },
+      ));
     }
     return color_buttons;
   }
@@ -423,6 +478,78 @@ class LedStripControl extends StatelessWidget {
   }
 }
 
+class NecLedStripControl extends StatelessWidget {
+  final TextEditingController _commandController = TextEditingController();
+  final Map<String, dynamic> color;
+  final List<Map<String, dynamic>> colors;
+  final Text title;
+  Function(Map<String, dynamic>) onColorChanged;
+  Function(String) onTextInput;
+  Function() onAvatarTap;
+
+  NecLedStripControl(
+      {Key? key,
+      required this.color,
+      required this.colors,
+      required this.title,
+      required this.onAvatarTap,
+      required this.onColorChanged,
+      required this.onTextInput})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            flex: 1,
+            child: GestureDetector(
+              onTap: onAvatarTap,
+              child: CircleAvatar(
+                backgroundColor: fromJsonColor(color),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: title,
+          ),
+          Expanded(
+            flex: 3,
+            child: NecColorTemplates(
+              colors: colors,
+              onPressed: onColorChanged,
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Column(
+              children: [
+                Form(
+                  child: TextFormField(
+                    controller: _commandController,
+                    decoration: InputDecoration(
+                        labelText: 'Send NEC message (e.g. 0xFFD02F)'),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    onTextInput(_commandController.text);
+                  },
+                  child: Text('Send'),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
 class GPIOControl extends StatelessWidget {
   final Text title;
   final List<int> gpio_modes;
@@ -518,6 +645,59 @@ class LedStripControlList extends StatelessWidget {
                   clientCommunication.send(
                       WebsocketActionId.CLIENT_VALUE_UPDATED,
                       {"client": client.toJson()});
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class NecLedStripControlList extends StatelessWidget {
+  final List<NecLedStripClient> necLedStripClients;
+
+  NecLedStripControlList({Key? key, required this.necLedStripClients})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          "Nec Led Strips",
+          style: Theme.of(context).textTheme.headline4,
+        ),
+        Column(
+          children: necLedStripClients.map((client) {
+            return Card(
+              child: NecLedStripControl(
+                color: client.is_connected
+                    ? client.color
+                    : toJsonColor(Colors.black54),
+                colors: client.color_templates,
+                title: Text(client.name,
+                    style: client.is_connected
+                        ? Theme.of(context).textTheme.bodyText1
+                        : TextStyle(
+                            color: Colors.black54,
+                            decoration: TextDecoration.lineThrough,
+                          )),
+                onAvatarTap: () {
+                  clientCommunication.sendNecCommand(
+                      client.toJson(), "0xFF02FD");
+                },
+                onColorChanged: (new_color) {
+                  client.color = new_color;
+                  clientCommunication.send(
+                      WebsocketActionId.CLIENT_VALUE_UPDATED,
+                      {"client": client.toJson()});
+                  clientCommunication.sendNecCommand(
+                      client.toJson(), new_color["nec"]);
+                },
+                onTextInput: (text) {
+                  clientCommunication.sendNecCommand(client.toJson(), text);
                 },
               ),
             );

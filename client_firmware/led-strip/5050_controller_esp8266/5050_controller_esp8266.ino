@@ -1,14 +1,8 @@
-//
-/*
-* This example works for ESP8266 and uses the NeoPixelBus library instead of the one bundle
-* Sketch contributed to by Joey Babcock - https://joeybabcock.me/blog/
-* Codebase created by ScottLawsonBC - https://github.com/scottlawsonbc
-*/
-
 #include <Arduino.h>
+#include <IRremoteESP8266.h>
+#include <IRsend.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
-#include <NeoPixelBus.h>
 #include <ArduinoJson.h>
 #include <time.h>
 #include "wifi_settings.h"
@@ -17,8 +11,6 @@
 
 // Maximum number of packets to hold in the buffer. Don't changethis.
 #define BUFFER_LEN 1024
-// Toggles FPS output (1 = print FPS over serial, 0 = disable output)
-#define PRINT_FPS 0
 
 // Network information
 #define DHCP 1 // 0: DHCP off => set network configuration below, 1: DHCP active (auto ip)
@@ -30,7 +22,7 @@ IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
 #endif
 
-DynamicJsonDocument receivedServerConfigJson(1024);
+DynamicJsonDocument receivedServerConfigJson(2048);
 DynamicJsonDocument clientParameterJson(1024);
 typedef enum {
     CONNECT = 0,
@@ -46,12 +38,13 @@ typedef enum {
     CLIENT_MESSAGE_ID_KEEPALIVE = 1
 } ClientMessageId;
 
-//NeoPixelBus settings
-const uint8_t PixelPin = 3;  // make sure to set this to the correct pin, ignored for Esp8266(set to 3 by default for DMA)
+// Data output (IRsend) settings
+const uint16_t PixelPin = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
+IRsend irsend(PixelPin, true, false);  // Set the GPIO to be used to sending the message.
 
 // Wifi and socket settings
 const int MAX_WIFI_CONNECTION_ATTEMPTS = 10;
-const uint8_t clientType = 0;  // 0: LED_STRIP, 1: CONTROLLER, 2: GPIO
+const uint8_t clientType = 4;  // 0: LED_STRIP, 1: CONTROLLER, 2: GPIO, 4: NEC_LED_STRIP
 unsigned int localPort = 7777;
 unsigned int remoteBroadcastPort = 60123;
 char packetBuffer[BUFFER_LEN];
@@ -69,41 +62,18 @@ uint32_t lastServerMessageMS;
 uint32_t nowMS;
 
 uint8_t N = 0;
-#if PRINT_FPS
-    uint16_t fpsCounter = 0;
-    uint32_t fpsTimerMS = 0;
-#endif
-
-// Initialize the LED strip with a default pixel count of 50
-// This will be overwritten, as soon as the config is received from the server
-uint16_t numPixels = 50;
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* strip = NULL;
+uint32_t nec_message;
 
 WiFiUDP messageUdpPort;
 WiFiUDP broadcastUdpPort;
 
 bool isConnectedToServer = false;
 
-RgbColor red(10,0,0);
-RgbColor green(0,10,0);
-RgbColor blue(0,0,10);
-RgbColor yellow(10,10,0);
-
-void initStrip(){
-  if (strip != NULL) {
-    delete strip;
-  }
-  Serial.println("deleted strip");
-  strip = new NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>(numPixels, PixelPin);
-  if (strip == NULL) {
-      Serial.println("Couldn't create strip. OUT OF MEMORY");
-      return;
-  }
-  Serial.println("created strip");
-  strip->Begin();
-  Serial.println("started strip");
-}
-
+uint32_t NEC_ON_OFF_TOGGLE = 0xFF02FD;
+uint32_t NEC_RED = 0xFF1AE5;
+uint32_t NEC_GREEN = 0xFF9A65;
+uint32_t NEC_BLUE = 0xFFA25D;
+uint32_t NEC_YELLOW = 0xFF18E7;
 
 void wifiConnectionLoop(){
   #if not DHCP
@@ -127,7 +97,7 @@ void wifiConnectionLoop(){
         iAttempt=0;
       }
       delay(500);
-      flashPattern(red, 2, 20);
+      flashPattern(NEC_RED, 2, 20);
       Serial.print(".");
       iAttempt++;
   }
@@ -138,26 +108,29 @@ void wifiConnectionLoop(){
 }
 
 void setup() {
-    Serial.begin(115200);
-
-    initStrip();
-    flashPattern(red, 5, 50);
-    wifiConnectionLoop();
-    setupClientParameterJson();
-    messageUdpPort.begin(localPort);
-    broadcastUdpPort.begin(remoteBroadcastPort);
-    flashPattern(blue, 5, 50);
+  irsend.begin();
+#if ESP8266
+  Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
+#else  // ESP8266
+  Serial.begin(115200, SERIAL_8N1);
+#endif  // ESP8266
+  flashPattern(NEC_RED, 5, 50);
+  wifiConnectionLoop();
+  setupClientParameterJson();
+  messageUdpPort.begin(localPort);
+  broadcastUdpPort.begin(remoteBroadcastPort);
+  flashPattern(NEC_BLUE, 5, 50);
 }
 
 void loop() {
-    nowMS = millis();
+  nowMS = millis();
     if(!isConnectedToServer){
         if(nowMS - lastClientBroadcastMS >= CLIENT_BROADCAST_DELAY_MS){
           int len = measureJson(clientParameterJson);
           serializeJson(clientParameterJson, broadcastMessageBuffer);
           Serial.printf("Sending clientParameterJson with length: %i\n", len);
           broadcastMessage(CLIENT_MESSAGE_ID_CONNECT, broadcastMessageBuffer, len);
-          flashPattern(yellow, 2, 20);
+          flashPattern(NEC_YELLOW, 2, 20);
           lastClientBroadcastMS = nowMS;
         }
     } else {
@@ -185,7 +158,7 @@ void loop() {
         #if DEBUG
         Serial.printf("Received message with len %d\n", len);
         #endif
-        // read 4 bytes as messageId integer
+        // read 1 byte as messageId integer
         int messageId = packetBuffer[0];
         handleMessage(messageId, len-1, &packetBuffer[1]);
         #if PRINT_FPS
@@ -249,8 +222,8 @@ void handleMessage(int messageId, int len, char *buffer){
               onConnectionMessage(len, buffer);
             }
             break;
-        case LED_STRIP_UPDATE:
-            onLedStripUpdateMessage(len, buffer);
+        case LED_STRIP_NEC_UPDATE:
+            onLedStripNecUpdate(len, buffer);
             break;
         default:
             Serial.printf("Ignoring message with id: %d\n", messageId);
@@ -260,17 +233,14 @@ void handleMessage(int messageId, int len, char *buffer){
 void onConnectionMessage(int len, char *buffer){
     Serial.println("onConnectionMessage");
     DeserializationError error = deserializeJson(receivedServerConfigJson, buffer);
-    Serial.println("deserialized");
+    Serial.println("Deserialized");
     if (error){
       Serial.println("jsonReceiveBuffer.parseObject(buffer) failed");
       Serial.println(buffer);
-      flashPattern(red, 10, 50);
+      flashPattern(NEC_RED, 10, 50);
       return;
     }
-    // setup the ledstrip with the received config
-    numPixels = receivedServerConfigJson["num_pixels"];
-    initStrip();
-    flashPattern(green, 5, 50);
+    flashPattern(NEC_GREEN, 5, 50);
     serverIp = messageUdpPort.remoteIP();
     serverPort = messageUdpPort.remotePort();
     Serial.printf("Registered at server: %s, port %d\n", serverIp.toString().c_str(), serverPort);
@@ -279,7 +249,7 @@ void onConnectionMessage(int len, char *buffer){
 
 void onDisconnectionMessage(){
     Serial.printf("Unregistered from server: %s, port %d\n", serverIp.toString().c_str(), serverPort);
-    flashPattern(blue, 5, 50);
+    flashPattern(NEC_BLUE, 5, 50);
     isConnectedToServer = false;
 }
 
@@ -287,17 +257,16 @@ void onKeepAliveMessage(){
     Serial.printf("Received KEEPALIVE message\n");
 }
 
-void onLedStripUpdateMessage(int len, char *buffer){
-    for(int i=0; i<len; i+=4) {
-        buffer[len]=0;
-        N = buffer[i];
-        RgbColor pixel((uint8_t)buffer[i+1], (uint8_t)buffer[i+2], (uint8_t)buffer[i+3]);
-        strip->SetPixelColor(N, pixel);
-    }
+void onLedStripNecUpdate(int len, char *buffer){
+    // NEC message is 4 bytes (uint32)
+    nec_message = (uint32_t) buffer[0] << 24;
+    nec_message |=  (uint32_t) buffer[1] << 16;
+    nec_message |= (uint32_t) buffer[2] << 8;
+    nec_message |= (uint32_t) buffer[3];
     #if DEBUG
-    Serial.printf("Received LED Strip update\n");
+    Serial.printf("Received LED Strip NEC mesage: %i\n", nec_message);
     #endif
-    strip->Show();
+    irsend.sendNEC(nec_message);
 }
 
 void printWifiStatus() {
@@ -332,32 +301,13 @@ void printWifiStatus() {
   Serial.println(" dBm");
 }
 
-void clearLedStrip(){
-  RgbColor off(0,0,0);
-  for(int i=0; i<numPixels; i++) {
-    strip->SetPixelColor(i, off);
+void flashPattern(uint32_t colorNecCode, int numFlashes, uint32_t delayMS){
+  irsend.sendNEC(NEC_ON_OFF_TOGGLE);
+  irsend.sendNEC(colorNecCode);
+  delay(delayMS);
+  for (int i=0; i<(numFlashes-1)*2; i++){
+    irsend.sendNEC(NEC_ON_OFF_TOGGLE);
+    delay(delayMS);
   }
-  Serial.printf("LED Strip cleared\n");
-  strip->Show();
-}
-
-void flashPattern(RgbColor onColor, int numFlashes, uint32_t delayMS){
-  if(delayMS <=0){
-    return;
-  }
-  RgbColor offColor(0,0,0);
-  bool isOn = false;
-  nowMS = millis();
-  uint32_t lastChangeMS = nowMS;
-  for (int i=0; i<numFlashes*2; i++){
-    for(int i=0; i<numPixels; i++) {
-      strip->SetPixelColor(i, isOn ? offColor : onColor);
-    }
-    strip->Show();
-    while(nowMS - lastChangeMS < delayMS){
-      nowMS = millis();
-    }
-    isOn = !isOn;
-    lastChangeMS = nowMS;
-  }
+  irsend.sendNEC(NEC_ON_OFF_TOGGLE);
 }

@@ -14,6 +14,13 @@ TODO
 
 # Features
 TODO
+
+# Clients
+* NEC Led Strip
+[Arduino client library - IRremoteESP8266](https://github.com/crankyoldgit/IRremoteESP8266)
+[IR NEC codes](http://woodsgood.ca/projects/2015/02/13/rgb-led-strip-controllers-ir-codes/)[Alternative IR NEC codes](https://gist.github.com/Derpidoo/e3042055e0f5c3708f9b98b75fe4d59e)
+[NEC Infrared Transmission Protocol](https://techdocs.altium.com/display/FPGA/NEC+Infrared+Transmission+Protocol)
+
 # Installation
 TODO
 1. For flashinbg client firmwares with Arudion IDE, copy wifi_settings_template.h to wifi_settings.h next to the *.ino file and update with your wifi credentials.

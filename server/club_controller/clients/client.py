@@ -66,6 +66,8 @@ class Client(ABC):
 
 
     def send_connection_message(self):
+        print("sending connection mesasge: ")
+        print(json.dumps(self.toJson()).encode('utf-8'))
         self.send_message(ServerMessageId.CONNECT, json.dumps(self.toJson()).encode('utf-8'))
 
 
