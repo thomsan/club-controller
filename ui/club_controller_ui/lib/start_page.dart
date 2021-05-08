@@ -46,6 +46,10 @@ class _WebsocketAddressFormState extends State<WebsocketAddressForm> {
             },
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              primary: ColorScheme.fromSwatch().primary, // background
+              onPrimary: Colors.white, // foreground
+            ),
             onPressed: () {
               // Validate returns true if the form is valid, or false otherwise.
               if (_formKey.currentState!.validate()) {

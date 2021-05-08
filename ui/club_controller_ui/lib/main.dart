@@ -6,5 +6,12 @@ void main() {
   runApp(MaterialApp(
     title: title,
     home: new StartPage(),
+    theme: ThemeData(
+      brightness: Brightness.light,
+      primarySwatch: Colors.cyan,
+    ),
+    darkTheme:
+        ThemeData(brightness: Brightness.dark, primarySwatch: Colors.cyan),
+    themeMode: ThemeMode.dark,
   ));
 }

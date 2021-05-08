@@ -192,57 +192,65 @@ class _ControllerPageState extends State<ControllerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Card(
-                child: Column(
-                  children: [
-                    Text(
-                      "Overall control",
-                      style: Theme.of(context).textTheme.headline4,
-                    ),
-                    OverallControl(ui_config: _ui_config)
-                  ],
-                ),
-              ),
-              Card(
-                child: LedStripControlList(ledStripClients: _led_strip_clients),
-              ),
-              Card(
-                child: NecLedStripControlList(
-                    necLedStripClients: _nec_led_strip_clients),
-              ),
-              Card(
-                child: GpioControlList(gpioClients: _gpio_clients),
-              ),
-              Form(
-                child: TextFormField(
-                  controller: _debugController,
-                  decoration: InputDecoration(
-                      labelText: 'Send message with given action id'),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  clientCommunication.sendActionId(WebsocketActionId
-                      .values[int.parse(_debugController.text)]);
-                },
-                child: Text('Send'),
-              ),
-            ],
+    return SafeArea(
+        bottom: false,
+        top: false,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(widget.title),
           ),
-        ),
-      ),
-    );
+          body: Container(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Card(
+                    child: Column(
+                      children: [
+                        Text(
+                          "Overall control",
+                          style: Theme.of(context).textTheme.headline4,
+                        ),
+                        OverallControl(ui_config: _ui_config)
+                      ],
+                    ),
+                  ),
+                  Card(
+                    child: LedStripControlList(
+                        ledStripClients: _led_strip_clients),
+                  ),
+                  Card(
+                    child: NecLedStripControlList(
+                        necLedStripClients: _nec_led_strip_clients),
+                  ),
+                  Card(
+                    child: GpioControlList(gpioClients: _gpio_clients),
+                  ),
+                  Form(
+                    child: TextFormField(
+                      controller: _debugController,
+                      decoration: InputDecoration(
+                          labelText: 'Send message with given action id'),
+                    ),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      primary: ColorScheme.fromSwatch().primary, // background
+                      onPrimary: Colors.white, // foreground
+                    ),
+                    onPressed: () {
+                      clientCommunication.sendActionId(WebsocketActionId
+                          .values[int.parse(_debugController.text)]);
+                    },
+                    child: Text('Send'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ));
   }
 }
 
@@ -350,7 +358,7 @@ class GpioButtons extends StatelessWidget {
           child: null,
           style: ElevatedButton.styleFrom(
             primary: gpio_values[index]
-                ? Colors.blueAccent
+                ? ColorScheme.fromSwatch().primary
                 : Colors.black54, // background
             onPrimary: Colors.white, // foreground
           ),
@@ -536,6 +544,10 @@ class NecLedStripControl extends StatelessWidget {
                   ),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    primary: ColorScheme.fromSwatch().primary, // background
+                    onPrimary: Colors.white, // foreground
+                  ),
                   onPressed: () {
                     onTextInput(_commandController.text);
                   },
@@ -574,7 +586,7 @@ class GPIOControl extends StatelessWidget {
           Expanded(
             flex: 1,
             child: CircleAvatar(
-              backgroundColor: Theme.of(context).accentColor,
+              backgroundColor: ColorScheme.fromSwatch().primary,
             ),
           ),
           Expanded(
