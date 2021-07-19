@@ -7,8 +7,8 @@ from .led_strip_client import LedStripClient
 from .nec_led_strip_client import NECLedStripClient
 
 
-def create_led_strip_client(uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, sigma, **_ignored):
-    return LedStripClient(uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, sigma)
+def create_led_strip_client(uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, filter, **_ignored):
+    return LedStripClient(uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, filter)
 
 def create_nec_led_strip_client(uid, ip, port, mac, name, color, color_templates, effect_id, frequency, **_ignored):
     return NECLedStripClient(uid, ip, port, mac, name, color, color_templates, effect_id, frequency)
@@ -19,21 +19,19 @@ def create_gpio_client(uid, ip, port, mac, name, gpio_modes, **_ignored):
 
 class ClientProvider(ObjectFactory):
     def get(self, client_type_id, **kwargs):
-        # TODO find a better way
-        # make sure kwargs contains all nec_led_strip fields
-        for key, value in NECLedStripClient.get_default_properties().items():
+        if client_type_id == ClientTypeId.LED_STRIP_CLIENT:
+            default_kwargs = LedStripClient.get_default_properties().items();
+        elif client_type_id == ClientTypeId.NEC_LED_STRIP_CLIENT:
+            default_kwargs = NECLedStripClient.get_default_properties().items()
+        elif client_type_id == ClientTypeId.GPIO_CLIENT:
+            default_kwargs = GPIOClient.get_default_properties().items()
+        else:
+            default_kwargs = []
+
+        for key, value in default_kwargs:
             if not key in kwargs:
                 kwargs[key] = value
-        # make sure kwargs contains all led_strip fields
-        for key, value in LedStripClient.get_default_properties().items():
-            if not key in kwargs:
-                kwargs[key] = value
-        # make sure kwargs contains all gpio fields
-        for key, value in GPIOClient.get_default_properties().items():
-            if not key in kwargs:
-                kwargs[key] = value
-        print(kwargs)
-        print(client_type_id)
+
         return self.create(client_type_id, **kwargs)
 
 
