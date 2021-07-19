@@ -27,7 +27,7 @@ class LedStripClient extends Client {
   int fps;
   Map<String, int> frequency;
   int num_pixels;
-  num sigma;
+  Map<String, double> filter;
 
   LedStripClient(
       {required uid,
@@ -40,7 +40,7 @@ class LedStripClient extends Client {
       required this.fps,
       required this.frequency,
       required this.num_pixels,
-      required this.sigma})
+      required this.filter})
       : super(
             uid: uid, name: name, type_id: type_id, is_connected: is_connected);
 

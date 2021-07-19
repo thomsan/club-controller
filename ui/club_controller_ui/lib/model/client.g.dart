@@ -36,7 +36,7 @@ LedStripClient _$LedStripClientFromJson(Map<String, dynamic> json) {
     fps: json['fps'] as int,
     frequency: Map<String, int>.from(json['frequency'] as Map),
     num_pixels: json['num_pixels'] as int,
-    sigma: json['sigma'] as num,
+    filter: Map<String, double>.from(json['filter'] as Map),
   );
 }
 
@@ -52,7 +52,7 @@ Map<String, dynamic> _$LedStripClientToJson(LedStripClient instance) =>
       'fps': instance.fps,
       'frequency': instance.frequency,
       'num_pixels': instance.num_pixels,
-      'sigma': instance.sigma,
+      'filter': instance.filter,
     };
 
 NecLedStripClient _$NecLedStripClientFromJson(Map<String, dynamic> json) {

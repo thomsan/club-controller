@@ -24,27 +24,25 @@ class LedStripClient(Client):
     #_max_led_FPS = int(((N_PIXELS * 30e-6) + 50e-6)**-1.0)
     #assert FPS <= _max_led_FPS, 'FPS must be <= {}'.format(_max_led_FPS)
 
-    def __init__(self, uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, sigma):
+    def __init__(self, uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, filter):
         self.color = color
         self.color_templates = color_templates
         self.effect_id = effect_id
         self.fps = fps
         self.frequency = frequency
         self.num_pixels = num_pixels
-        self.sigma = sigma
+        self.filter = filter
         self.lock = Lock()
         self.pixels = np.tile(1, (3, self.num_pixels))
         self.p = np.tile(1.0, (3, self.num_pixels // 2))
         self.p_filt = ExpFilter(np.tile(0, (3, self.num_pixels // 2)),
-                        alpha_decay=0.1, alpha_rise=0.99)
+                        alpha_decay=filter["decay"], alpha_rise=filter["rise"])
         self.gain = ExpFilter(np.tile(0.01, self.num_pixels // 2),
                         alpha_decay=0.001, alpha_rise=0.99)
         self.prev_pixels = np.tile(0, (3, self.num_pixels))
         self.prev_spectrum = np.tile(0.01, self.num_pixels // 2)
         self.r_filt = ExpFilter(np.tile(0.01, self.num_pixels // 2),
                             alpha_decay=0.2, alpha_rise=0.99)
-        self.g_filt = ExpFilter(np.tile(0.01, self.num_pixels // 2),
-                            alpha_decay=0.05, alpha_rise=0.3)
         self.b_filt = ExpFilter(np.tile(0.01, self.num_pixels // 2),
                             alpha_decay=0.1, alpha_rise=0.5)
         self.common_mode = ExpFilter(np.tile(0.01, self.num_pixels // 2),
@@ -67,14 +65,16 @@ class LedStripClient(Client):
             "fps": self.fps,
             "frequency": self.frequency,
             "num_pixels": self.num_pixels,
-            "sigma": self.sigma,
+            "filter": self.filter
         }
 
 
     def update_from_json(self, client_json):
         for key, value in client_json.items():
             setattr(self, key, value)
-
+            if key == "filter":
+                self.p_filt.alpha_rise = value["rise"]
+                self.p_filt.alpha_decay = value["decay"]
 
     def process(self, fft_data):
         """Transforms the given fft data into pixel values based on the current config.
@@ -90,6 +90,8 @@ class LedStripClient(Client):
         spacing = app_config.SAMPLE_RATE / 2 / len(fft_data)
         i_min_freq = int(self.frequency["min"] / spacing)
         i_max_freq = int(self.frequency["max"] / spacing)
+        if i_min_freq == i_max_freq:
+            i_max_freq = i_min_freq + 1
         mapped_fft_data = fft_data[i_min_freq:i_max_freq]
         effect_id = EffectId(self.effect_id)
         if(effect_id == EffectId.COLORED_ENERGY):
@@ -111,7 +113,7 @@ class LedStripClient(Client):
     def get_pixel_values_colored_energy(self, fft_data):
         """Effect that expands from the center with increasing sound energy and set color"""
         y = interpolate(fft_data, self.num_pixels//2)
-        self.gain.update(y)
+        self.gain.update(np.max(gaussian_filter1d(y, sigma=1.0)))
         # TODO check what's the difference to above: self.gain.update(np.max(gaussian_filter1d(interpolated_fft_data, sigma=1.0)))
         y /= self.gain.value
         # Scale by the width of the LED strip
@@ -130,9 +132,9 @@ class LedStripClient(Client):
         self.p_filt.update(self.p)
         p = np.round(self.p_filt.value)
         # Apply substantial blur to smooth the edges
-        p[0, :] = gaussian_filter1d(p[0, :], sigma=float(self.sigma))
-        p[1, :] = gaussian_filter1d(p[1, :], sigma=float(self.sigma))
-        p[2, :] = gaussian_filter1d(p[2, :], sigma=float(self.sigma))
+        p[0, :] = gaussian_filter1d(p[0, :], sigma=float(self.filter["edge_blurring"]))
+        p[1, :] = gaussian_filter1d(p[1, :], sigma=float(self.filter["edge_blurring"]))
+        p[2, :] = gaussian_filter1d(p[2, :], sigma=float(self.filter["edge_blurring"]))
         return np.concatenate((p[:, ::-1], p), axis=1)
 
 
@@ -232,17 +234,11 @@ class LedStripClient(Client):
         self.prev_pixels = np.copy(p)
 
 
-    def update_properties(self, new_properties):
-        for key in new_properties:
-            setattr(self, key, new_properties[key])
-
-
     @staticmethod
     def get_default_properties():
         return {
             "num_pixels": 50,
             "effect_id": 0,
-            "sigma": 1,
             "color": {
                 "r": 255,
                 "g": 0,
@@ -268,6 +264,11 @@ class LedStripClient(Client):
             "frequency": {
                 "min": 0,
                 "max": 12000
+            },
+            "filter": {
+                "edge_blurring": 1.0,
+                "rise": 0.999,
+                "decay": 0.1
             },
             "fps": 60
         }

@@ -300,6 +300,77 @@ class ColorTemplates extends StatelessWidget {
   }
 }
 
+class LedStripParameters extends StatelessWidget {
+  final LedStripClient client;
+  final Function onClientValueChanged;
+  late RangeValues frequencyRange;
+
+  LedStripParameters(
+      {Key? key, required this.client, required this.onClientValueChanged})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    this.frequencyRange = RangeValues(client.frequency["min"]!.toDouble(),
+        client.frequency["max"]!.toDouble());
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Column(
+        children: [
+          Text("Frequency range"),
+          RangeSlider(
+            values: frequencyRange,
+            labels:
+                RangeLabels('${frequencyRange.start}', '${frequencyRange.end}'),
+            onChanged: (newRange) {
+              client.frequency["min"] = newRange.start.toInt();
+              client.frequency["max"] = newRange.end.toInt();
+              if (client.frequency["min"]! == client.frequency["max"]!) {
+                client.frequency["max"] = client.frequency["max"]! + 1;
+              }
+              onClientValueChanged();
+            },
+            min: 0,
+            max: 12000,
+            divisions: 100,
+          ),
+          Text("Edge blurring"),
+          Slider(
+              value: client.filter["edge_blurring"]!,
+              min: 0.01,
+              max: 10,
+              label: '${client.filter["edge_blurring"]!}',
+              onChanged: (newEdgeBlurring) {
+                client.filter["edge_blurring"] = newEdgeBlurring;
+                onClientValueChanged();
+              }),
+          Text("Rise"),
+          Slider(
+              value: client.filter["rise"]!,
+              min: 0.001,
+              max: 0.999,
+              label: '${client.filter["rise"]!}',
+              onChanged: (newEdgeBlurring) {
+                client.filter["rise"] = newEdgeBlurring;
+                onClientValueChanged();
+              }),
+          Text("Decay"),
+          Slider(
+              value: client.filter["decay"]!,
+              min: 0.001,
+              max: 0.999,
+              label: '${client.filter["decay"]!}',
+              onChanged: (newEdgeBlurring) {
+                client.filter["decay"] = newEdgeBlurring;
+                onClientValueChanged();
+              })
+        ],
+      ),
+    );
+  }
+}
+
 class NecColorTemplates extends StatelessWidget {
   final List<Map<String, dynamic>> colors;
   final Function(Map<String, dynamic>)? onPressed;
@@ -399,6 +470,7 @@ class OverallControl extends StatelessWidget {
               .toList(),
           title: Text("All Led strips",
               style: Theme.of(context).textTheme.bodyText1),
+          ledStripParameters: null,
           onColorChanged: (new_color) {
             // TODO only send a certain number of requests per second
             clientCommunication.send(WebsocketActionId.UI_CONFIG_UPDATED,
@@ -429,6 +501,7 @@ class LedStripControl extends StatelessWidget {
   final Color color;
   final List<Color> colors;
   final Text title;
+  final LedStripParameters? ledStripParameters;
   Function(Color) onColorChanged;
   Function(List<Color>) onColorAdded;
   Function(List<Color>) onColorRemoved;
@@ -438,6 +511,7 @@ class LedStripControl extends StatelessWidget {
       required this.color,
       required this.colors,
       required this.title,
+      this.ledStripParameters,
       required this.onColorChanged,
       required this.onColorAdded,
       required this.onColorRemoved})
@@ -470,7 +544,7 @@ class LedStripControl extends StatelessWidget {
             child: title,
           ),
           Expanded(
-            flex: 3,
+            flex: 1,
             child: ColorTemplates(
               colors: colors,
               onPressed: onColorChanged,
@@ -480,6 +554,16 @@ class LedStripControl extends StatelessWidget {
               },
             ),
           ),
+          Builder(
+            builder: (context) {
+              return ledStripParameters != null
+                  ? Expanded(
+                      flex: 3,
+                      child: ledStripParameters!,
+                    )
+                  : Center();
+            },
+          )
         ],
       ),
     );
@@ -638,6 +722,13 @@ class LedStripControlList extends StatelessWidget {
                             color: Colors.black54,
                             decoration: TextDecoration.lineThrough,
                           )),
+                ledStripParameters: LedStripParameters(
+                    client: client,
+                    onClientValueChanged: () {
+                      clientCommunication.send(
+                          WebsocketActionId.CLIENT_VALUE_UPDATED,
+                          {"client": client.toJson()});
+                    }),
                 onColorChanged: (new_color) {
                   client.color = toJsonColor(new_color);
                   clientCommunication.send(
