@@ -1,5 +1,5 @@
-import 'websocket.dart';
-import 'client_communication.dart';
+import 'communication/websocket.dart';
+import 'communication/client_communication.dart';
 import 'package:flutter/material.dart';
 import 'controller_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
