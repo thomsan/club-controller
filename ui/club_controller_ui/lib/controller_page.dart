@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:collection/collection.dart';
 import 'communication/client_communication.dart';
 import 'model/client.dart';
 import 'widgets/all_clients_list_widget.dart';
@@ -55,15 +56,15 @@ class _ControllerPageState extends State<ControllerPage> {
     switch (ClientTypeId.values[clientJson["type_id"]]) {
       case ClientTypeId.LED_STRIP_CLIENT:
         client = _led_strip_clients
-            .firstWhere((c) => c.uid == clientJson["uid"], orElse: null);
+            .firstWhereOrNull((c) => c.uid == clientJson["uid"]);
         break;
       case ClientTypeId.NEC_LED_STRIP_CLIENT:
         client = _nec_led_strip_clients
-            .firstWhere((c) => c.uid == clientJson["uid"], orElse: null);
+            .firstWhereOrNull((c) => c.uid == clientJson["uid"]);
         break;
       case ClientTypeId.GPIO_CLIENT:
-        client = _gpio_clients.firstWhere((c) => c.uid == clientJson["uid"],
-            orElse: null);
+        client =
+            _gpio_clients.firstWhereOrNull((c) => c.uid == clientJson["uid"]);
         break;
       default:
         int type_id = clientJson["type_id"];
@@ -72,7 +73,7 @@ class _ControllerPageState extends State<ControllerPage> {
     return client;
   }
 
-  void createClient(Map<String, dynamic> clientJson) {
+  void addClient(Map<String, dynamic> clientJson) {
     switch (ClientTypeId.values[clientJson["type_id"]]) {
       case ClientTypeId.LED_STRIP_CLIENT:
         _led_strip_clients.add(LedStripClient.fromJson(clientJson));
@@ -102,7 +103,7 @@ class _ControllerPageState extends State<ControllerPage> {
           if (client != null) {
             client.is_connected = true;
           } else {
-            createClient(message["client"]);
+            addClient(message["client"]);
           }
         });
         break;
