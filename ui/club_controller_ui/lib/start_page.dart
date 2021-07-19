@@ -94,7 +94,7 @@ class _StartPageState extends State<StartPage> {
     super.initState();
     // get stored websocket address
     _websocketAddress = _prefs.then((SharedPreferences prefs) {
-      return (prefs.getString('websocket_address') ?? "");
+      return (prefs.getString('websocket_address') ?? "ws://localhost:60124");
     });
     _websocketAddress.then((value) {
       print("Loaded websocketAddres: $value");
