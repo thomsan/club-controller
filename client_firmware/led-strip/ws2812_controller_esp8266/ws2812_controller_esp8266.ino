@@ -30,7 +30,7 @@ IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
 #endif
 
-DynamicJsonDocument receivedServerConfigJson(1024);
+DynamicJsonDocument receivedServerConfigJson(4096);
 DynamicJsonDocument clientParameterJson(1024);
 typedef enum {
     CONNECT = 0,
