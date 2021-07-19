@@ -27,6 +27,7 @@ run-local-gui:
 	python3 -O $(ROOT_DIR)/club_controller/main.py --gui
 
 run-local-debug:
+	source ~/.virtualenvs/club-controller/bin/activate && \
 	python3 $(ROOT_DIR)/club_controller/main.py
 
 run-local-debug-gui:

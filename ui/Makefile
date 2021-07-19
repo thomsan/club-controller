@@ -16,7 +16,7 @@ stop:
 	docker stop $(UI_DOCKER_NAME); docker rm $(UI_DOCKER_NAME)
 
 flutter-watch:
-	cd club_controller_ui/ && flutter pub run build_runner watch
+	cd club_controller_ui/ && flutter pub get && flutter pub run build_runner watch
 
 dependencies:
 	sudo snap install flutter --classic
