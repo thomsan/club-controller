@@ -3,6 +3,7 @@ import sys
 from threading import Thread
 
 from club_controller import config as app_config
+from club_controller.clients.client_mode_id import ClientModeId
 import numpy as np
 from club_controller.audio_udp_server.dsp import interpolate
 from club_controller.clients.client_udp_listener import ClientUDPListener
@@ -86,7 +87,7 @@ class AudioServer:
         # send to all connected clients
         # TODO measure times and check if things need to be done asynchronous
         for client in self.client_handler.get_led_strip_clients():
-            if(client.is_connected):
+            if(client.is_connected and client.mode == int(ClientModeId.AUDIO)):
                 client.process(fft_data)
                 client.send_pixel_data()
 

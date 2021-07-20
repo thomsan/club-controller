@@ -10,6 +10,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 from .client import Client
 from .client_type_id import ClientTypeId
+from .client_mode_id import ClientModeId
 
 
 class EffectId(IntEnum):
@@ -24,7 +25,8 @@ class LedStripClient(Client):
     #_max_led_FPS = int(((N_PIXELS * 30e-6) + 50e-6)**-1.0)
     #assert FPS <= _max_led_FPS, 'FPS must be <= {}'.format(_max_led_FPS)
 
-    def __init__(self, uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, filter):
+    def __init__(self, uid, ip, port, mac, name, mode, color, color_templates, effect_id, fps, frequency, num_pixels, filter):
+        self.mode = mode
         self.color = color
         self.color_templates = color_templates
         self.effect_id = effect_id
@@ -32,7 +34,7 @@ class LedStripClient(Client):
         self.frequency = frequency
         self.num_pixels = num_pixels
         self.filter = filter
-        self.lock = Lock()
+        self.pixels_lock = Lock()
         self.pixels = np.tile(1, (3, self.num_pixels))
         self.p = np.tile(1.0, (3, self.num_pixels // 2))
         self.p_filt = ExpFilter(np.tile(0, (3, self.num_pixels // 2)),
@@ -65,7 +67,8 @@ class LedStripClient(Client):
             "fps": self.fps,
             "frequency": self.frequency,
             "num_pixels": self.num_pixels,
-            "filter": self.filter
+            "filter": self.filter,
+            "mode": self.mode,
         }
 
 
@@ -76,6 +79,12 @@ class LedStripClient(Client):
                 self.p_filt.alpha_rise = value["rise"]
                 self.p_filt.alpha_decay = value["decay"]
 
+    def set_pixel_data(self, pixel_data):
+        self.pixels_lock.acquire()
+        self.pixels = pixel_data
+        self.pixels_lock.release()
+
+    # TOOD returned processed data (Should the processing be somewhere else???)
     def process(self, fft_data):
         """Transforms the given fft data into pixel values based on the current config.
 
@@ -83,7 +92,7 @@ class LedStripClient(Client):
             fft_data (np.ndarray): Fft data in the range 0 - 1
         """
 
-        self.lock.acquire()
+        self.pixels_lock.acquire()
 
         # get chosen frequency range
         # fft_data spans from 0 to SAMPLING_RATE/2 Hz with spacing SAMPLING_RATE/len(fft_dat)
@@ -107,7 +116,7 @@ class LedStripClient(Client):
                 print("Unkown effectId: " + str(self.effect_id))
             pixel_values = np.zeros(self.num_pixels)
         self.pixels = pixel_values
-        self.lock.release()
+        self.pixels_lock.release()
 
 
     def get_pixel_values_colored_energy(self, fft_data):
@@ -206,9 +215,9 @@ class LedStripClient(Client):
 
 
     def send_pixel_data(self):
-        self.lock.acquire()
+        self.pixels_lock.acquire()
         p = np.copy(self.pixels)
-        self.lock.release()
+        self.pixels_lock.release()
         if(len(self.pixels) < 2):
             if __debug__:
                 print("Can't send pixel data. len(self.pixels): " + str(len(self.pixels)))
@@ -239,6 +248,7 @@ class LedStripClient(Client):
         return {
             "num_pixels": 50,
             "effect_id": 0,
+            "mode": int(ClientModeId.AUDIO),
             "color": {
                 "r": 255,
                 "g": 0,

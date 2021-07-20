@@ -30,6 +30,7 @@ enum WebsocketActionId {
   MAIN_UI_COMPONENT_UPDATED,
   SAVE_AS_LED_STRIP_PRESET,
   APPLY_PRESET,
+  STROBE_CONFIG_UPDATED,
 }
 
 class ClientCommunication {

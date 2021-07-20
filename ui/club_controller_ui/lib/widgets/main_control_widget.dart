@@ -2,6 +2,7 @@ import 'package:club_controller_ui/communication/client_communication.dart';
 import 'package:club_controller_ui/model/gpio_client.dart';
 import 'package:club_controller_ui/model/led_strip_client.dart';
 import 'package:club_controller_ui/model/nec_led_strip_client.dart';
+import 'package:club_controller_ui/widgets/strobe_control_widget.dart';
 import 'package:flutter/material.dart';
 import 'all_clients_list_widget.dart';
 import 'led_strip_control_widget.dart';
@@ -63,6 +64,25 @@ class MainControl extends StatelessWidget {
                       new_colors.map((color) => toJsonColor(color)).toList()
                 });
               },
+            ),
+            StrobeControl(
+              color: ui_config["color"] != null
+                  ? fromJsonColor(ui_config["color"])
+                  : Color.fromARGB(0, 0, 0, 0),
+              onColorChanged: (new_color) {
+                // TODO only send a certain number of requests per second
+                clientCommunication.send(
+                    WebsocketActionId.STROBE_CONFIG_UPDATED,
+                    {"color": toJsonColor(new_color)});
+              },
+              title: Text("Strobe all",
+                  style: Theme.of(context).textTheme.bodyText1),
+              strobeParameters: StrobeParameters(
+                delayMs: 100,
+                color: fromJsonColor({"r": 127, "g": 127, "b": 127}),
+                onStrobeDelayChanged: (newDelay) => {},
+                onStrobeColorChanged: (newColor) => {},
+              ),
             ),
             Card(
               child: AllClientsControlList(

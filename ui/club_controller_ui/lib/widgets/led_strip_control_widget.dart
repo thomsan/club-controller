@@ -189,24 +189,26 @@ class _LedStripControlState extends State<LedStripControl> {
                     },
                   ),
                 ),
-                IconButton(
-                  onPressed: () => {
-                    setState(() {
-                      this._showDetails = !this._showDetails;
-                    })
-                  },
-                  icon: _showDetails
-                      ? Icon(
-                          Icons.expand_less,
-                          size: 24.0,
-                          semanticLabel: 'Collapse',
-                        )
-                      : Icon(
-                          Icons.expand_more,
-                          size: 24.0,
-                          semanticLabel: 'Expand',
-                        ),
-                ),
+                widget.ledStripParameters == null
+                    ? Center()
+                    : IconButton(
+                        onPressed: () => {
+                          setState(() {
+                            this._showDetails = !this._showDetails;
+                          })
+                        },
+                        icon: _showDetails
+                            ? Icon(
+                                Icons.expand_less,
+                                size: 24.0,
+                                semanticLabel: 'Collapse',
+                              )
+                            : Icon(
+                                Icons.expand_more,
+                                size: 24.0,
+                                semanticLabel: 'Expand',
+                              ),
+                      ),
               ],
             ),
             widget.ledStripParameters != null

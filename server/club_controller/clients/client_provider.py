@@ -7,8 +7,8 @@ from .led_strip_client import LedStripClient
 from .nec_led_strip_client import NECLedStripClient
 
 
-def create_led_strip_client(uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, filter, **_ignored):
-    return LedStripClient(uid, ip, port, mac, name, color, color_templates, effect_id, fps, frequency, num_pixels, filter)
+def create_led_strip_client(uid, ip, port, mac, name, mode, color, color_templates, effect_id, fps, frequency, num_pixels, filter, **_ignored):
+    return LedStripClient(uid, ip, port, mac, name, mode, color, color_templates, effect_id, fps, frequency, num_pixels, filter)
 
 def create_nec_led_strip_client(uid, ip, port, mac, name, color, color_templates, effect_id, frequency, **_ignored):
     return NECLedStripClient(uid, ip, port, mac, name, color, color_templates, effect_id, frequency)

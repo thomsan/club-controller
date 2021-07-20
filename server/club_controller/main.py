@@ -4,6 +4,8 @@ import sys
 from threading import Thread
 from time import sleep
 
+from club_controller.animations.strobe_controller import StrobeController
+
 import config as app_config
 from audio_udp_server.audio_server import AudioServer
 from clients.client_udp_listener import ClientUDPListener
@@ -32,6 +34,10 @@ if __name__ == '__main__':
         audio_server_thread = Thread(target=audio_server.run, name="Audio-Server-Thread")
         audio_server_thread.start()
 
+        delay_ms = 50 # TODO save animation parameters in config
+        strobe_controller = StrobeController(delay_ms, client_handler)
+        strobe_controller.start()
+
         websocket_server = WebsocketServer(client_handler=client_handler, ui_config_manager=ui_config_manager)
         websocket_server.run()
 
@@ -40,7 +46,7 @@ if __name__ == '__main__':
 
         is_running = True
         while is_running:
-            sleep(1000)
+            sleep(1)
 
 
     except KeyboardInterrupt:
@@ -49,6 +55,7 @@ if __name__ == '__main__':
         audio_server_thread.join()
         client_handler.stop()
         client_handler_thread.join()
+        strobe_controller.stop()
         # TODO stop websockets gracefully (it already has a event loop internally)
         #websocket_server.stop()
         is_running = False
