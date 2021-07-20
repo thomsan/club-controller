@@ -42,6 +42,27 @@ class _ControllerPageState extends State<ControllerPage> {
     super.dispose();
   }
 
+  List<T> getFilteredClientList<T>(
+      List<T> clients, bool onlyMainComponents, uiConfig) {
+    if (clients.isEmpty) {
+      return List<T>.empty();
+    }
+    if (onlyMainComponents) {
+      if (uiConfig.isEmpty) {
+        return List<T>.empty();
+      }
+      return clients
+          .where((c) => uiConfig["main_ui_components"]
+              .where((ui_c) =>
+                  ui_c["uid"] == (c as Client).uid &&
+                  ui_c["show_in_main_ui"] == true)
+              .isNotEmpty)
+          .toList();
+    } else {
+      return clients;
+    }
+  }
+
   /*List<LedStripClient> getLedStripClients(){
     return _clients.where((c) => c.type_id == ClientTypeId.LED_STRIP_CLIENT).toList().cast<LedStripClient>();
   }
@@ -119,6 +140,12 @@ class _ControllerPageState extends State<ControllerPage> {
 
       case WebsocketActionId.CLIENT_LIST:
         setState(() {
+          _gpio_clients = (message["clients"] as List)
+              .where((client) =>
+                  ClientTypeId.values[client["type_id"]] ==
+                  ClientTypeId.GPIO_CLIENT)
+              .map((client) => GpioClient.fromJson(client))
+              .toList(growable: true);
           _led_strip_clients = (message["clients"] as List)
               .where((client) =>
                   ClientTypeId.values[client["type_id"]] ==
@@ -130,12 +157,6 @@ class _ControllerPageState extends State<ControllerPage> {
                   ClientTypeId.values[client["type_id"]] ==
                   ClientTypeId.NEC_LED_STRIP_CLIENT)
               .map((client) => NecLedStripClient.fromJson(client))
-              .toList(growable: true);
-          _gpio_clients = (message["clients"] as List)
-              .where((client) =>
-                  ClientTypeId.values[client["type_id"]] ==
-                  ClientTypeId.GPIO_CLIENT)
-              .map((client) => GpioClient.fromJson(client))
               .toList(growable: true);
         });
         break;
@@ -176,11 +197,19 @@ class _ControllerPageState extends State<ControllerPage> {
                           style: Theme.of(context).textTheme.headline4,
                         ),
                         MainControl(
-                            gpioClients: this._gpio_clients,
-                            ledStripClients: this._led_strip_clients,
-                            necLedStripClients: this._nec_led_strip_clients,
-                            ui_config: _ui_config,
-                            clientCommunication: clientCommunication)
+                            gpioClients: getFilteredClientList<GpioClient>(
+                                this._gpio_clients, true, this._ui_config),
+                            ledStripClients:
+                                getFilteredClientList<LedStripClient>(
+                                    this._led_strip_clients,
+                                    true,
+                                    this._ui_config),
+                            necLedStripClients:
+                                getFilteredClientList<NecLedStripClient>(
+                                    this._nec_led_strip_clients,
+                                    true,
+                                    this._ui_config),
+                            ui_config: _ui_config)
                       ],
                     ),
                   ),
@@ -218,12 +247,10 @@ class _ControllerPageState extends State<ControllerPage> {
                           duration: Duration(milliseconds: 200),
                           child: showDetails
                               ? AllClientsControlList(
-                                  onlyMainComponents: false,
                                   gpioClients: _gpio_clients,
                                   ledStripClients: _led_strip_clients,
                                   necLedStripClients: _nec_led_strip_clients,
-                                  uiConfig: _ui_config,
-                                  clientCommunication: clientCommunication)
+                                  uiConfig: _ui_config)
                               : Center(),
                         ),
                       ],

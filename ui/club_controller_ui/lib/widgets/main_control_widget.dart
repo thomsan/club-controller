@@ -12,15 +12,13 @@ class MainControl extends StatelessWidget {
   final List<LedStripClient> ledStripClients;
   final List<NecLedStripClient> necLedStripClients;
   final Map<String, dynamic> ui_config;
-  final ClientCommunication clientCommunication;
 
   MainControl(
       {Key? key,
       required this.gpioClients,
       required this.ledStripClients,
       required this.necLedStripClients,
-      required this.ui_config,
-      required this.clientCommunication})
+      required this.ui_config})
       : super(key: key);
 
   @override
@@ -68,12 +66,10 @@ class MainControl extends StatelessWidget {
             ),
             Card(
               child: AllClientsControlList(
-                  onlyMainComponents: true,
                   gpioClients: gpioClients,
                   ledStripClients: ledStripClients,
                   necLedStripClients: necLedStripClients,
-                  uiConfig: this.ui_config,
-                  clientCommunication: clientCommunication),
+                  uiConfig: this.ui_config),
             ),
             // TODO add smoke machine
           ]),
