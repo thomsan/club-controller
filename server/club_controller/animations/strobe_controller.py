@@ -33,7 +33,7 @@ class StrobeController:
                         client.set_pixel_data(np.tile(0, (3, client.num_pixels)))
                     else:
                         # TODO set color
-                        client.set_pixel_data(np.tile(128, (3, client.num_pixels)))
+                        client.set_pixel_data(np.tile((int)(255/50), (3, client.num_pixels)))
                     client.send_pixel_data()
                     self.is_strobe_on = not self.is_strobe_on
             sleep(self.delay_ms/1000.0)
