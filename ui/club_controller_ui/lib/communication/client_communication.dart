@@ -27,6 +27,9 @@ enum WebsocketActionId {
   UI_CONFIG,
   UI_CONFIG_UPDATED,
   NEC_COMMAND,
+  MAIN_UI_COMPONENT_UPDATED,
+  SAVE_AS_LED_STRIP_PRESET,
+  APPLY_PRESET,
 }
 
 class ClientCommunication {

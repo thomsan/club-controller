@@ -38,6 +38,57 @@ class WebsocketServer:
         elif message_id == WebsocketActionId.NEC_COMMAND:
             nec_led_strip_client = self.client_handler.get_client_by_value("uid", data["data"]["client"]["uid"])
             nec_led_strip_client.send_nec_command(data["data"]["command"])
+        elif message_id == WebsocketActionId.MAIN_UI_COMPONENT_UPDATED:
+            uid = data["data"]["uid"]
+            ui_config = self.ui_config_manager.get()
+            if ui_config.get("main_ui_components") is None:
+                ui_config["main_ui_components"] = []
+            ui_component = None
+            for ui_c in ui_config["main_ui_components"]:
+                if ui_c["uid"] == uid:
+                    ui_component = ui_c
+            if ui_component == None:
+                ui_component = {"uid": uid, "show_in_main_ui": data["data"]["show_in_main_ui"]}
+                ui_config["main_ui_components"].append(ui_component)
+            else:
+                ui_component["show_in_main_ui"] = data["data"]["show_in_main_ui"]
+            await self.send_to_all(self.get_ui_config_message())
+        elif message_id == WebsocketActionId.SAVE_AS_LED_STRIP_PRESET:
+            preset_client = self.client_handler.get_client_by_value("uid", data["data"]["client_uid"])
+            ui_config = self.ui_config_manager.get()
+            if ui_config.get("led_strip_presets") is None:
+                ui_config["led_strip_presets"] = []
+            max_uid = -1
+            for preset in ui_config["led_strip_presets"]:
+                if preset["uid"] >= max_uid:
+                    max_uid = preset["uid"]
+            preset = {"uid": max_uid + 1, "title": data["data"]["title"], "filter": preset_client.filter, "frequency": preset_client.frequency}
+            ui_config["led_strip_presets"].append(preset)
+            await self.send_to_all(self.get_ui_config_message())
+        elif message_id == WebsocketActionId.APPLY_PRESET:
+            client_uid = data["data"]["uid"]
+            preset_uid = data["data"]["preset_uid"]
+            if client_uid == None:
+                print("APPLY_PRESET: client_uid == None")
+                return
+            if preset_uid == None:
+                print("APPLY_PRESET: preset_uid == None")
+                return
+
+            ui_config = self.ui_config_manager.get()
+            if ui_config.get("led_strip_presets") is None:
+                ui_config["led_strip_presets"] = []
+            preset = ui_config["led_strip_presets"][preset_uid]
+            if preset == None:
+                print("APPLY_PRESET: prese == None")
+                return
+            client = self.client_handler.get_client_by_value("uid", client_uid)
+            if client == None:
+                print("APPLY_PRESET: client == None")
+                return
+
+            client.update_from_json(preset)
+            await self.send_to_all(self.get_client_list_message())
         else:
             if __debug__:
                 print("Message id not implemented: ", message_id)

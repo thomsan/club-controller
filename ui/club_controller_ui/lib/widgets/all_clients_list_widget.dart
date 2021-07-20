@@ -1,4 +1,5 @@
 import 'package:club_controller_ui/communication/client_communication.dart';
+import 'package:club_controller_ui/model/client.dart';
 import 'package:flutter/material.dart';
 
 import 'package:club_controller_ui/model/gpio_client.dart';
@@ -10,17 +11,34 @@ import 'nec_led_strip_control_widget.dart';
 
 import 'package:club_controller_ui/color_helper.dart';
 
+bool hideClientList(List<Client> clients, bool onlyMainComponents, uiConfig) {
+  return clients.isEmpty ||
+      uiConfig["main_ui_components"] == null ||
+      uiConfig["main_ui_components"].isEmpty ||
+      onlyMainComponents &&
+          clients
+              .where((c) => uiConfig["main_ui_components"]
+                  .where((ui_c) =>
+                      ui_c["uid"] == c.uid && ui_c["show_in_main_ui"] == true)
+                  .isNotEmpty)
+              .isEmpty;
+}
+
 class AllClientsControlList extends StatelessWidget {
+  final bool onlyMainComponents;
   final List<GpioClient> gpioClients;
   final List<LedStripClient> ledStripClients;
   final List<NecLedStripClient> necLedStripClients;
+  final Map<String, dynamic> uiConfig;
   final ClientCommunication clientCommunication;
 
   AllClientsControlList(
       {Key? key,
+      required this.onlyMainComponents,
       required this.gpioClients,
       required this.ledStripClients,
       required this.necLedStripClients,
+      required this.uiConfig,
       required this.clientCommunication})
       : super(key: key);
 
@@ -28,33 +46,45 @@ class AllClientsControlList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Card(
-          child: LedStripControlList(
-              ledStripClients: ledStripClients,
-              clientCommunication: clientCommunication),
-        ),
-        Card(
-          child: NecLedStripControlList(
-              necLedStripClients: necLedStripClients,
-              clientCommunication: clientCommunication),
-        ),
-        Card(
-          child: GpioControlList(
-              gpioClients: gpioClients,
-              clientCommunication: clientCommunication),
-        ),
+        hideClientList(ledStripClients, onlyMainComponents, uiConfig)
+            ? Center()
+            : Card(
+                child: LedStripControlList(
+                    onlyMainComponents: onlyMainComponents,
+                    ledStripClients: ledStripClients,
+                    uiConfig: uiConfig,
+                    clientCommunication: clientCommunication),
+              ),
+        hideClientList(necLedStripClients, onlyMainComponents, uiConfig)
+            ? Center()
+            : Card(
+                child: NecLedStripControlList(
+                    necLedStripClients: necLedStripClients,
+                    clientCommunication: clientCommunication),
+              ),
+        hideClientList(gpioClients, onlyMainComponents, uiConfig)
+            ? Center()
+            : Card(
+                child: GpioControlList(
+                    gpioClients: gpioClients,
+                    clientCommunication: clientCommunication),
+              ),
       ],
     );
   }
 }
 
 class LedStripControlList extends StatelessWidget {
+  final bool onlyMainComponents;
   final List<LedStripClient> ledStripClients;
+  final Map<String, dynamic> uiConfig;
   final ClientCommunication clientCommunication;
 
   LedStripControlList(
       {Key? key,
+      required this.onlyMainComponents,
       required this.ledStripClients,
+      required this.uiConfig,
       required this.clientCommunication})
       : super(key: key);
 
@@ -64,54 +94,72 @@ class LedStripControlList extends StatelessWidget {
       children: [
         Text(
           "Led Strips",
-          style: Theme.of(context).textTheme.headline4,
+          style: Theme.of(context).textTheme.headline5,
         ),
         Column(
           children: ledStripClients.map((client) {
-            return Card(
-              child: LedStripControl(
-                color: client.is_connected
-                    ? fromJsonColor(client.color)
-                    : Colors.black54,
-                colors: client.color_templates
-                    .map((color) => fromJsonColor(color))
-                    .toList(),
-                title: Text(client.name,
-                    style: client.is_connected
-                        ? Theme.of(context).textTheme.bodyText1
-                        : TextStyle(
-                            color: Colors.black54,
-                            decoration: TextDecoration.lineThrough,
-                          )),
-                ledStripParameters: LedStripParameters(
-                    client: client,
-                    onClientValueChanged: () {
-                      clientCommunication.send(
-                          WebsocketActionId.CLIENT_VALUE_UPDATED,
-                          {"client": client.toJson()});
-                    }),
-                onColorChanged: (new_color) {
-                  client.color = toJsonColor(new_color);
-                  clientCommunication.send(
-                      WebsocketActionId.CLIENT_VALUE_UPDATED,
-                      {"client": client.toJson()});
-                },
-                onColorAdded: (new_colors) {
-                  client.color_templates =
-                      new_colors.map((color) => toJsonColor(color)).toList();
-                  clientCommunication.send(
-                      WebsocketActionId.CLIENT_VALUE_UPDATED,
-                      {"client": client.toJson()});
-                },
-                onColorRemoved: (new_colors) {
-                  client.color_templates =
-                      new_colors.map((color) => toJsonColor(color)).toList();
-                  clientCommunication.send(
-                      WebsocketActionId.CLIENT_VALUE_UPDATED,
-                      {"client": client.toJson()});
-                },
-              ),
-            );
+            bool showInMainUI = false;
+            if (this.uiConfig["main_ui_components"] != null) {
+              for (var ui_c in this.uiConfig["main_ui_components"]) {
+                if (ui_c["uid"] == client.uid && ui_c["show_in_main_ui"]) {
+                  showInMainUI = true;
+                  break;
+                }
+              }
+            }
+            return this.onlyMainComponents && showInMainUI == false
+                ? Center()
+                : Card(
+                    child: LedStripControl(
+                      color: client.is_connected
+                          ? fromJsonColor(client.color)
+                          : Colors.black54,
+                      colors: client.color_templates
+                          .map((color) => fromJsonColor(color))
+                          .toList(),
+                      title: Text(client.name,
+                          style: client.is_connected
+                              ? Theme.of(context).textTheme.bodyText1
+                              : TextStyle(
+                                  color: Colors.black54,
+                                  decoration: TextDecoration.lineThrough,
+                                )),
+                      showInMainUI: showInMainUI,
+                      ledStripParameters: LedStripParameters(
+                          client: client,
+                          onClientValueChanged: () {
+                            clientCommunication.send(
+                                WebsocketActionId.CLIENT_VALUE_UPDATED,
+                                {"client": client.toJson()});
+                          }),
+                      ledStripPresets: uiConfig["led_strip_presets"] != null &&
+                              uiConfig["led_strip_presets"].isNotEmpty
+                          ? uiConfig["led_strip_presets"]
+                          : [],
+                      onColorChanged: (new_color) {
+                        client.color = toJsonColor(new_color);
+                        clientCommunication.send(
+                            WebsocketActionId.CLIENT_VALUE_UPDATED,
+                            {"client": client.toJson()});
+                      },
+                      onColorAdded: (new_colors) {
+                        client.color_templates = new_colors
+                            .map((color) => toJsonColor(color))
+                            .toList();
+                        clientCommunication.send(
+                            WebsocketActionId.CLIENT_VALUE_UPDATED,
+                            {"client": client.toJson()});
+                      },
+                      onColorRemoved: (new_colors) {
+                        client.color_templates = new_colors
+                            .map((color) => toJsonColor(color))
+                            .toList();
+                        clientCommunication.send(
+                            WebsocketActionId.CLIENT_VALUE_UPDATED,
+                            {"client": client.toJson()});
+                      },
+                    ),
+                  );
           }).toList(),
         ),
       ],
@@ -135,7 +183,7 @@ class NecLedStripControlList extends StatelessWidget {
       children: [
         Text(
           "Nec Led Strips",
-          style: Theme.of(context).textTheme.headline4,
+          style: Theme.of(context).textTheme.headline5,
         ),
         Column(
           children: necLedStripClients.map((client) {
@@ -190,7 +238,7 @@ class GpioControlList extends StatelessWidget {
       children: [
         Text(
           "GPIOs",
-          style: Theme.of(context).textTheme.headline4,
+          style: Theme.of(context).textTheme.headline5,
         ),
         Column(
           children: gpioClients.map((client) {

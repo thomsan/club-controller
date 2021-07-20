@@ -4,8 +4,7 @@ import 'package:collection/collection.dart';
 import 'communication/client_communication.dart';
 import 'model/client.dart';
 import 'widgets/all_clients_list_widget.dart';
-import 'widgets/overall_control_widget.dart';
-import 'widgets/led_strip_control_widget.dart';
+import 'widgets/main_control_widget.dart';
 import 'model/gpio_client.dart';
 import 'model/led_strip_client.dart';
 import 'model/nec_led_strip_client.dart';
@@ -19,11 +18,11 @@ class ControllerPage extends StatefulWidget {
 
 class _ControllerPageState extends State<ControllerPage> {
   TextEditingController _debugController = TextEditingController();
+  bool showDetails = false;
 
   ///
   /// At first initialization, the client list is empty
   ///
-  List<Map<String, dynamic>> _clients = List.empty(growable: true);
   List<LedStripClient> _led_strip_clients = List.empty(growable: true);
   List<NecLedStripClient> _nec_led_strip_clients = List.empty(growable: true);
   List<GpioClient> _gpio_clients = List.empty(growable: true);
@@ -173,21 +172,62 @@ class _ControllerPageState extends State<ControllerPage> {
                     child: Column(
                       children: [
                         Text(
-                          "Overall control",
+                          "Club control",
                           style: Theme.of(context).textTheme.headline4,
                         ),
-                        OverallControl(
+                        MainControl(
+                            gpioClients: this._gpio_clients,
+                            ledStripClients: this._led_strip_clients,
+                            necLedStripClients: this._nec_led_strip_clients,
                             ui_config: _ui_config,
                             clientCommunication: clientCommunication)
                       ],
                     ),
                   ),
                   Card(
-                    child: AllClientsControlList(
-                        gpioClients: _gpio_clients,
-                        ledStripClients: _led_strip_clients,
-                        necLedStripClients: _nec_led_strip_clients,
-                        clientCommunication: clientCommunication),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "All clients",
+                              style: Theme.of(context).textTheme.headline4,
+                            ),
+                            IconButton(
+                              onPressed: () => {
+                                setState(() {
+                                  this.showDetails = !this.showDetails;
+                                })
+                              },
+                              icon: showDetails
+                                  ? Icon(
+                                      Icons.expand_less,
+                                      size: 24.0,
+                                      semanticLabel: 'Collapse',
+                                    )
+                                  : Icon(
+                                      Icons.expand_more,
+                                      size: 24.0,
+                                      semanticLabel: 'Expand',
+                                    ),
+                            ),
+                          ],
+                        ),
+                        AnimatedContainer(
+                          duration: Duration(milliseconds: 200),
+                          child: showDetails
+                              ? AllClientsControlList(
+                                  onlyMainComponents: false,
+                                  gpioClients: _gpio_clients,
+                                  ledStripClients: _led_strip_clients,
+                                  necLedStripClients: _nec_led_strip_clients,
+                                  uiConfig: _ui_config,
+                                  clientCommunication: clientCommunication)
+                              : Center(),
+                        ),
+                      ],
+                    ),
                   ),
                   Form(
                     child: TextFormField(
