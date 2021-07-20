@@ -70,7 +70,9 @@ class ColorTemplates extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
-      child: Column(
+      child: Wrap(
+        runSpacing: 5.0,
+        spacing: 5.0,
         children: _buildColorTemplateList(),
       ),
     );
